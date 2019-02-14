@@ -1,0 +1,7 @@
+[package]
+name = "update_gfx"
+version = "0.1.0"
+authors = ["Ryan1729 <Ryan1729@gmail.com>"]
+
+[dependencies]
+png = "0.12.0"

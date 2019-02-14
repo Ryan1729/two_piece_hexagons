@@ -1,0 +1,22 @@
+[package]
+name = "game"
+version = "0.1.0"
+authors = ["Ryan1729 <Ryan1729@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+rand = "0.5"
+
+[dependencies.features]
+path = "../features"
+
+[dependencies.platform_types]
+path = "../platform_types"
+
+[dependencies.rendering]
+path = "../rendering"
+
+[features]
+default = []
+invariant-checking = ["features/invariant-checking"]
+logging = ["features/logging"]
