@@ -1,7 +1,4 @@
-//in pixels
-pub const SCREEN_WIDTH: usize = 128;
-pub const SCREEN_HEIGHT: usize = 128;
-pub const SCREEN_LENGTH: usize = SCREEN_WIDTH * SCREEN_HEIGHT;
+pub use platform_types::{SCREEN_HEIGHT, SCREEN_LENGTH, SCREEN_WIDTH};
 
 // reportedly colourblind friendly colours
 // https://twitter.com/ea_accessible/status/968595073184092160

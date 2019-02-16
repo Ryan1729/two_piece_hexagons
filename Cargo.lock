@@ -110,6 +110,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "rendering"
 version = "0.1.0"
 dependencies = [
+ "platform_types 0.1.0",
  "text 0.1.0",
 ]
 

@@ -1,6 +1,31 @@
 #[macro_use]
 extern crate bitflags;
 
+#[macro_export]
+macro_rules! w {
+    () => {
+        256
+    };
+    (.0) => {
+        256.0
+    };
+}
+
+#[macro_export]
+macro_rules! h {
+    () => {
+        256
+    };
+    (.0) => {
+        256.0
+    };
+}
+
+//in pixels
+pub const SCREEN_WIDTH: usize = w!();
+pub const SCREEN_HEIGHT: usize = h!();
+pub const SCREEN_LENGTH: usize = SCREEN_WIDTH * SCREEN_HEIGHT;
+
 #[derive(Clone, Copy, Default, Debug)]
 pub struct Input {
     pub gamepad: Button::Ty,

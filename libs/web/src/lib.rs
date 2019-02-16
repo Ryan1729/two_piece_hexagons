@@ -14,8 +14,7 @@ use stdweb::web::{self, Element, IElement, IEventTarget, INode, INonElementParen
 
 use stdweb::{UnsafeTypedArray, Value};
 
-
-use platform_types::{Button, State, StateParams, SFX};
+use platform_types::{h, w, Button, State, StateParams, SFX};
 
 macro_rules! enclose {
     ( [$( $x:ident ),*] $y:expr ) => {
@@ -123,7 +122,7 @@ fn setup_webgl(canvas: &Element) -> Value {
         var sampler_uniform = gl.getUniformLocation( program, "u_sampler" );
         gl.uniform1i( sampler_uniform, 0 );
 
-        var matrix = @{ortho( 0.0, 128.0, 128.0, 0.0 )};
+        var matrix = @{ortho( 0.0, w!(.0), h!(.0), 0.0 )};
         var matrix_uniform = gl.getUniformLocation( program, "u_matrix" );
         gl.uniformMatrix4fv( matrix_uniform, false, matrix );
 
@@ -133,12 +132,12 @@ fn setup_webgl(canvas: &Element) -> Value {
             gl.TEXTURE_2D,
             0,
             gl.RGBA,
-            128,
-            128,
+            @{w!()},
+            @{h!()},
             0,
             gl.RGBA,
             gl.UNSIGNED_BYTE,
-            new Uint8Array( 128 * 128 * 4 )
+            new Uint8Array(@{w!() * h!() * 4 })
           );
         gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST );
         gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST );
@@ -147,9 +146,9 @@ fn setup_webgl(canvas: &Element) -> Value {
         gl.bindBuffer( gl.ARRAY_BUFFER, vertex_buffer );
         var vertices = [
             0.0, 0.0,
-            0.0, 128.0,
-            128.0, 0.0,
-            128.0, 128.0
+            0.0, @{h!(.0)},
+            @{w!(.0)}, 0.0,
+            @{w!(.0)}, @{h!(.0)}
         ];
         gl.bufferData( gl.ARRAY_BUFFER, new Float32Array( vertices ), gl.STATIC_DRAW );
         gl.vertexAttribPointer( vertex_attr, 2, gl.FLOAT, false, 0, 0 );
@@ -158,9 +157,9 @@ fn setup_webgl(canvas: &Element) -> Value {
         gl.bindBuffer( gl.ARRAY_BUFFER, texcoord_buffer );
         var texcoords = [
             0.0, 0.0,
-            0.0, 128.0 / 128.0,
+            0.0, @{w!(.0) / h!(.0)},
             1.0, 0.0,
-            1.0, 128.0 / 128.0
+            1.0, @{w!(.0) / h!(.0)}
         ];
         gl.bufferData( gl.ARRAY_BUFFER, new Float32Array( texcoords ), gl.STATIC_DRAW );
         gl.vertexAttribPointer( texcoord_attr, 2, gl.FLOAT, false, 0, 0 );
@@ -175,7 +174,7 @@ fn setup_webgl(canvas: &Element) -> Value {
 
         gl.clearColor( 0.0, 0.0, 0.0, 1.0 );
         gl.enable( gl.DEPTH_TEST );
-        gl.viewport( 0, 0, 128, 128 );
+        gl.viewport( 0, 0, @{w!()}, @{h!()});
 
         return gl;
     )
@@ -220,7 +219,7 @@ impl<S: State> PinkyWeb<S> {
                 canvas = new_canvas;
 
                 h.ctx = canvas.getContext( "2d" );
-                h.img = h.ctx.createImageData( 128, 128 );
+                h.img = h.ctx.createImageData( @{w!()}, @{h!()} );
                 h.buffer = new Uint32Array( h.img.data.buffer );
             }
 
@@ -287,7 +286,7 @@ impl<S: State> PinkyWeb<S> {
                         framebuffer.byteLength
                     );
                     h.gl.texSubImage2D( h.gl.TEXTURE_2D,
-                         0, 0, 0, 128, 128, h.gl.RGBA, h.gl.UNSIGNED_BYTE, data );
+                         0, 0, 0, @{w!()}, @{h!()}, h.gl.RGBA, h.gl.UNSIGNED_BYTE, data );
                     h.gl.drawElements( h.gl.TRIANGLES, 6, h.gl.UNSIGNED_SHORT, 0 );
                 } else {
                     h.buffer.set( framebuffer );
@@ -361,21 +360,21 @@ fn emulate_for_a_single_frame<S: State + 'static>(pinky: Rc<RefCell<PinkyWeb<S>>
 
     web::set_timeout(
         enclose!( [pinky] move || {
-        let finished_frame = match pinky.borrow_mut().run_a_bit() {
-            Ok( result ) => result,
-            Err( error ) => {
-                handle_error( error );
-                return;
-            }
-        };
+            let finished_frame = match pinky.borrow_mut().run_a_bit() {
+                Ok( result ) => result,
+                Err( error ) => {
+                    handle_error( error );
+                    return;
+                }
+            };
 
-        if !finished_frame {
-            web::set_timeout( move || { emulate_for_a_single_frame( pinky ); }, 0 );
-        } else {
-            let mut pinky = pinky.borrow_mut();
-            pinky.busy = false;
-        }
-    }),
+            if !finished_frame {
+                web::set_timeout( move || { emulate_for_a_single_frame( pinky ); }, 0 );
+            } else {
+                let mut pinky = pinky.borrow_mut();
+                pinky.busy = false;
+            }
+        }),
         0,
     );
 }

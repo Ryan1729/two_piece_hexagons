@@ -8,3 +8,6 @@ edition = "2018"
 
 [dependencies.text]
 path = "../text"
+
+[dependencies.platform_types]
+path = "../platform_types"
