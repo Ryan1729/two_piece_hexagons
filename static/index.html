@@ -30,7 +30,6 @@
             left: 0;
             right: 0;
 
-            height: 90%;
             image-rendering: -moz-crisp-edges;
             image-rendering: -webkit-crisp-edges;
             image-rendering: pixelated;
@@ -123,6 +122,8 @@
 </head>
 <body>
     <canvas id="viewport" width="256" height="256" class="hidden"></canvas>
+    <a href="#" onclick="shrinkViewport()"> - </a>
+    <a href="#" onclick="growViewport()"> + </a>
     <div id="horizontal-container">
         <!--
          <div id="side-text">
@@ -145,6 +146,26 @@
             <p>Sorry about that!</p>
         </div>
     </div>
+    <script>
+        const viewport = document.getElementById("viewport");
+        let viewportSizeMultiplier = Math.floor(
+            document.body.getBoundingClientRect().height / viewport.height
+        ) || 1;
+        const setHeightFromMultiplier = () => {
+            viewport.style.height = (viewportSizeMultiplier * viewport.height) + "px";
+        };
+        setHeightFromMultiplier();
+        const shrinkViewport = () => {
+            if (viewportSizeMultiplier > 1) {
+                viewportSizeMultiplier -= 1;
+                setHeightFromMultiplier();
+            }
+        };
+        const growViewport = () => {
+            viewportSizeMultiplier += 1;
+            setHeightFromMultiplier();
+        };
+    </script>
     <audio id="beep" src="sounds/beep.ogg" preload="auto" controls="none" style="display: none;" volume="0.375"></audio>
     <audio id="engine" src="sounds/engine.ogg" preload="auto" controls="none" style="display: none;" volume="0.375"></audio>
     <audio id="light_thunk" src="sounds/light_thunk.ogg" preload="auto" controls="none" style="display: none;" volume="0.375"></audio>

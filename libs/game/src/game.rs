@@ -1,6 +1,6 @@
 use features::{GLOBAL_ERROR_LOGGER, GLOBAL_LOGGER};
 use platform_types::{Button, Input, Speaker, State, StateParams, SFX};
-use rendering::{Framebuffer, BLACK, BLUE, GREEN, RED, WHITE};
+use rendering::{Framebuffer, BLUE, GREEN, RED, WHITE};
 
 pub struct GameState {}
 
@@ -77,11 +77,17 @@ pub fn update_and_render(
     input: Input,
     _speaker: &mut Speaker,
 ) {
+    for y in (0..8).map(|y| y * 8) {
+        for x in (0..8).map(|x| x * 8) {
+            framebuffer.hexagon(x, y, GREEN, RED);
+        }
+    }
+
     match input.gamepad {
         Button::A => framebuffer.clear_to(GREEN),
         Button::B => framebuffer.clear_to(BLUE),
         Button::Select => framebuffer.clear_to(WHITE),
         Button::Start => framebuffer.clear_to(RED),
-        _ => framebuffer.clear_to(BLACK),
+        _ => {}
     }
 }

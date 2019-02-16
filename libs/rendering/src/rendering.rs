@@ -726,7 +726,67 @@ impl Framebuffer {
             y,
         );
     }
+
+    pub fn hexagon(&mut self, x: u8, y: u8, interior: u32, outline: u32) {
+        for hex_y in 0..8 {
+            for hex_x in 0..8 {
+                self.hexagon_set_pixel(x, y, hex_x, hex_y, interior, outline);
+            }
+        }
+    }
+
+    pub fn hexagon_left(&mut self, x: u8, y: u8, interior: u32, outline: u32) {
+        for hex_y in 0..8 {
+            for hex_x in 0..4 {
+                self.hexagon_set_pixel(x, y, hex_x, hex_y, interior, outline);
+            }
+        }
+    }
+    pub fn hexagon_right(&mut self, x: u8, y: u8, interior: u32, outline: u32) {
+        for hex_y in 0..8 {
+            for hex_x in 4..8 {
+                self.hexagon_set_pixel(x, y, hex_x, hex_y, interior, outline);
+            }
+        }
+    }
+
+    pub fn hexagon_set_pixel(
+        &mut self,
+        x: u8,
+        y: u8,
+        hex_x: u8,
+        hex_y: u8,
+        interior: u32,
+        outline: u32,
+    ) {
+        let c =
+            Framebuffer::hexagon_match(HEXAGON[(hex_y * 8 + hex_x) as usize], interior, outline);
+        if c > 0 {
+            self.buffer
+                [Framebuffer::xy_to_i(x.wrapping_add(hex_x) as _, y.wrapping_add(hex_y) as _)] = c;
+        }
+    }
+
+    pub fn hexagon_match(colour_spec: u8, interior: u32, outline: u32) -> u32 {
+        match colour_spec {
+            1 => interior,
+            2 => outline,
+            _ => 0,
+        }
+    }
 }
+
+#[cfg_attr(rustfmt, rustfmt_skip)]
+pub const HEXAGON: [u8; 64] = [
+    0, 0, 0, 0, 2, 2, 2, 2,
+    0, 0, 0, 2, 1, 1, 1, 2,
+    0, 0, 2, 1, 1, 1, 1, 2,
+    0, 2, 1, 1, 1, 1, 1, 2,
+    2, 1, 1, 1, 1, 1, 2, 0,
+    2, 1, 1, 1, 1, 2, 0, 0,
+    2, 1, 1, 1, 2, 0, 0, 0,
+    2, 2, 2, 2, 0, 0, 0, 0,
+];
 
 pub fn get_sprite_xy(sprite_number: u8) -> (u8, u8) {
     (
