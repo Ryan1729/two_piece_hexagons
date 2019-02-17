@@ -1,12 +1,27 @@
 use features::{GLOBAL_ERROR_LOGGER, GLOBAL_LOGGER};
 use platform_types::{Button, Input, Speaker, State, StateParams, SFX};
-use rendering::{Framebuffer, BLUE, GREEN, RED, WHITE};
+use rendering::{Framebuffer, BLUE, GREEN, PALETTE, RED, WHITE};
 
-pub struct GameState {}
+const GRID_WIDTH: u8 = 20;
+const GRID_HEIGHT: u8 = 60;
+const GRID_LENGTH: usize = GRID_WIDTH as usize * GRID_HEIGHT as usize;
+
+type Grid = [u8; GRID_LENGTH];
+
+pub struct GameState {
+    grid: Grid,
+}
 
 impl GameState {
     pub fn new(_seed: [u8; 16]) -> GameState {
-        GameState {}
+        let mut grid: Grid = [0; GRID_LENGTH];
+        let mut c: u8 = 0;
+        for i in 0..GRID_LENGTH {
+            grid[i] = c;
+            c = c.wrapping_add(1);
+        }
+
+        GameState { grid }
     }
 }
 
@@ -70,16 +85,35 @@ impl State for EntireState {
     }
 }
 
+fn get_colours(mut spec: u8) -> (u32, u32) {
+    spec &= 0b0111_0111;
+    (
+        PALETTE[(spec & 0b111) as usize],
+        PALETTE[(spec >> 4) as usize],
+    )
+}
+
 #[inline]
 pub fn update_and_render(
     framebuffer: &mut Framebuffer,
-    _state: &mut GameState,
+    state: &mut GameState,
     input: Input,
     _speaker: &mut Speaker,
 ) {
-    for y in (0..8).map(|y| y * 8) {
-        for x in (0..8).map(|x| x * 8) {
-            framebuffer.hexagon(x, y, GREEN, RED);
+    let offset = 4;
+    for y in 0..GRID_HEIGHT {
+        for x in 0..GRID_WIDTH {
+            let (inside, outline) =
+                get_colours(state.grid[y as usize * GRID_WIDTH as usize + x as usize]);
+
+            let row_type = y % 3;
+
+            framebuffer.hexagon(
+                x * 12 + row_type * 4 + offset,
+                y * 4 + offset,
+                inside,
+                outline,
+            );
         }
     }
 
