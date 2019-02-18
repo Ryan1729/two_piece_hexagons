@@ -762,8 +762,12 @@ impl Framebuffer {
         let c =
             Framebuffer::hexagon_match(HEXAGON[(hex_y * 8 + hex_x) as usize], interior, outline);
         if c > 0 {
-            self.buffer
-                [Framebuffer::xy_to_i(x.wrapping_add(hex_x) as _, y.wrapping_add(hex_y) as _)] = c;
+            self.buffer[Framebuffer::xy_to_i(
+                //if we don't `& 0b11` here then the hexagon is drawn 4 to the right of `x`
+                //when the right half of the hexagon is drawn.
+                x.wrapping_add(hex_x & 0b11) as _,
+                y.wrapping_add(hex_y) as _,
+            )] = c;
         }
     }
 

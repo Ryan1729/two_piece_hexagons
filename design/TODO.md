@@ -1,7 +1,5 @@
 # TODO
 
-* draw each half separately, with different colours to the other half
-
 * Make cursor that can instantly swap pieces
     select one, then pick another one and they then swap
 
