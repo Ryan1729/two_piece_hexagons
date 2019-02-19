@@ -1,27 +1,23 @@
 use features::{GLOBAL_ERROR_LOGGER, GLOBAL_LOGGER};
 use platform_types::{Button, Input, Speaker, State, StateParams, SFX};
-use rendering::{Framebuffer, BLUE, GREEN, PALETTE, RED, WHITE};
-use std::cmp::{max, min};
+use rendering::{Framebuffer, BLUE, GREEN, PALETTE, RED, WHITE, YELLOW};
 
 const GRID_WIDTH: u8 = 40;
 const GRID_HEIGHT: u8 = 60;
 const GRID_LENGTH: usize = GRID_WIDTH as usize * GRID_HEIGHT as usize;
 
-type Grid = Vec<u8>;
+type Grid = [u8; GRID_LENGTH];
 
-#[derive(Default)]
 pub struct GameState {
-    w: u8,
-    h: u8,
     grid: Grid,
+    cursor: usize,
 }
 
-fn new_grid(w: u8, h: u8) -> Grid {
-    let l = w as usize * h as usize;
-    let mut grid: Grid = Vec::with_capacity(l);
+fn new_grid() -> Grid {
+    let mut grid: Grid = [0; GRID_LENGTH];
     let mut c: u8 = 0;
-    for _ in 0..l {
-        grid.push(c);
+    for i in 0..GRID_LENGTH {
+        grid[i] = c;
         c = c.wrapping_add(1);
     }
     grid
@@ -29,12 +25,11 @@ fn new_grid(w: u8, h: u8) -> Grid {
 
 impl GameState {
     pub fn new(_seed: [u8; 16]) -> GameState {
-        let grid: Grid = new_grid(GRID_WIDTH, GRID_HEIGHT);
+        let grid: Grid = new_grid();
 
         GameState {
             grid,
-            w: GRID_WIDTH,
-            h: GRID_HEIGHT,
+            cursor: GRID_WIDTH as usize + 1,
         }
     }
 }
@@ -107,6 +102,26 @@ fn get_colours(mut spec: u8) -> (u32, u32) {
     )
 }
 
+const HEX_WIDTH: u8 = 4;
+const HEX_HEIGHT: u8 = 8;
+const HALF_HEX_HEIGHT: u8 = HEX_HEIGHT / 2;
+const EDGE_OFFSET: u8 = 6;
+
+fn p_xy(x: u8, y: u8) -> (u8, u8) {
+    let x_offset = (y % 3) * HEX_WIDTH;
+    if x & 1 == 0 {
+        (
+            x * 6 + x_offset + EDGE_OFFSET,
+            y * HALF_HEX_HEIGHT + EDGE_OFFSET,
+        )
+    } else {
+        (
+            x * 6 + x_offset - 2 + EDGE_OFFSET,
+            y * HALF_HEX_HEIGHT + EDGE_OFFSET,
+        )
+    }
+}
+
 #[inline]
 pub fn update_and_render(
     framebuffer: &mut Framebuffer,
@@ -116,57 +131,54 @@ pub fn update_and_render(
 ) {
     framebuffer.clear_to(framebuffer.buffer[0]);
 
-    let edge_offset = 6;
-    let offset = 4;
-    for y in 0..state.h {
-        for x in 0..state.w {
+    for y in 0..GRID_HEIGHT {
+        for x in 0..GRID_WIDTH {
             let (inside, outline) =
-                get_colours(state.grid[y as usize * state.w as usize + x as usize]);
+                get_colours(state.grid[y as usize * GRID_WIDTH as usize + x as usize]);
 
-            let x_offset = (y % 3) * offset;
+            let (p_x, p_y) = p_xy(x, y);
             if x & 1 == 0 {
-                framebuffer.hexagon_left(
-                    x * 6 + x_offset + edge_offset,
-                    y * 4 + edge_offset,
-                    inside,
-                    outline,
-                );
+                framebuffer.hexagon_left(p_x, p_y, inside, outline);
             } else {
-                framebuffer.hexagon_right(
-                    x * 6 + x_offset - 2 + edge_offset,
-                    y * 4 + edge_offset,
-                    inside,
-                    outline,
-                );
+                framebuffer.hexagon_right(p_x, p_y, inside, outline);
             }
         }
     }
+
+    let (x, y) = (
+        (state.cursor % GRID_WIDTH as usize) as u8,
+        (state.cursor / GRID_WIDTH as usize) as u8,
+    );
+
+    let (p_x, p_y) = p_xy(x, y);
+    framebuffer.draw_rect(p_x as usize - 1, p_y as usize - 1, 6, 10, YELLOW);
 
     match input.gamepad {
         Button::A => framebuffer.clear_to(GREEN),
         Button::B => framebuffer.clear_to(BLUE),
         Button::Select => framebuffer.clear_to(WHITE),
         Button::Start => framebuffer.clear_to(RED),
-        Button::Up => {
-            state.h = state.h.saturating_sub(1);
-            state.grid = new_grid(state.w, state.h);
-        }
-        Button::Down => {
-            if state.h < GRID_HEIGHT {
-                state.h += 1;
-                state.grid = new_grid(state.w, state.h);
-            }
-        }
-        Button::Left => {
-            state.w = state.w.saturating_sub(1);
-            state.grid = new_grid(state.w, state.h);
-        }
-        Button::Right => {
-            if state.w < GRID_WIDTH {
-                state.w += 1;
-                state.grid = new_grid(state.w, state.h);
-            }
-        }
         _ => {}
+    }
+
+    if input.pressed_this_frame(Button::Up) {
+        if y > 0 {
+            state.cursor = state.cursor.saturating_sub(GRID_WIDTH as usize);
+        }
+    }
+    if input.pressed_this_frame(Button::Down) {
+        if state.cursor + (GRID_WIDTH as usize) < GRID_LENGTH as usize {
+            state.cursor += GRID_WIDTH as usize;
+        }
+    }
+    if input.pressed_this_frame(Button::Left) {
+        if x > 0 {
+            state.cursor = state.cursor.saturating_sub(1);
+        }
+    }
+    if input.pressed_this_frame(Button::Right) {
+        if x < GRID_WIDTH - 1 {
+            state.cursor += 1;
+        }
     }
 }
