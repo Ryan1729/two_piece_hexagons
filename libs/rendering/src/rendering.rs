@@ -119,6 +119,52 @@ impl Framebuffer {
         }
     }
 
+    pub fn draw_rect_with_shader<F>(
+        &mut self,
+        x: usize,
+        y: usize,
+        width: usize,
+        height: usize,
+        shader: F,
+    ) where
+        F: Fn(usize, usize, usize, usize) -> u32,
+    {
+        let one_past_right_edge = x + width;
+        let one_past_bottom_edge = y + height;
+
+        for current_y in y..one_past_bottom_edge {
+            {
+                let i = Framebuffer::xy_to_i(x, current_y);
+                if i < self.buffer.len() {
+                    self.buffer[i] = shader(x, current_y, width, height);
+                }
+            }
+
+            {
+                let i = Framebuffer::xy_to_i(one_past_right_edge - 1, current_y);
+                if i < self.buffer.len() {
+                    self.buffer[i] = shader(x, current_y, width, height);
+                }
+            }
+        }
+
+        for current_x in x..one_past_right_edge {
+            {
+                let i = Framebuffer::xy_to_i(current_x, y);
+                if i < self.buffer.len() {
+                    self.buffer[i] = shader(current_x, y, width, height);
+                }
+            }
+
+            {
+                let i = Framebuffer::xy_to_i(current_x, one_past_bottom_edge - 1);
+                if i < self.buffer.len() {
+                    self.buffer[i] = shader(current_x, y, width, height);
+                }
+            }
+        }
+    }
+
     pub fn clear(&mut self) {
         for i in 0..self.buffer.len() {
             self.buffer[i] = 0;

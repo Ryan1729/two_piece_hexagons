@@ -1,6 +1,6 @@
 use features::{GLOBAL_ERROR_LOGGER, GLOBAL_LOGGER};
 use platform_types::{Button, Input, Speaker, State, StateParams, SFX};
-use rendering::{Framebuffer, BLUE, GREEN, PALETTE, RED, WHITE, YELLOW};
+use rendering::{Framebuffer, BLUE, GREEN, PALETTE, PURPLE, RED, WHITE, YELLOW};
 
 const GRID_WIDTH: u8 = 40;
 const GRID_HEIGHT: u8 = 60;
@@ -11,6 +11,7 @@ type Grid = [u8; GRID_LENGTH];
 pub struct GameState {
     grid: Grid,
     cursor: usize,
+    frame_counter: usize,
 }
 
 fn new_grid() -> Grid {
@@ -30,6 +31,7 @@ impl GameState {
         GameState {
             grid,
             cursor: GRID_WIDTH as usize + 1,
+            frame_counter: 0,
         }
     }
 }
@@ -122,6 +124,30 @@ fn p_xy(x: u8, y: u8) -> (u8, u8) {
     }
 }
 
+//This way we don't need to allocate a closure every frame.
+fn marching_ants(frame_counter: usize) -> fn(usize, usize, usize, usize) -> u32 {
+    macro_rules! marching_ants {
+        ($offset: expr) => {{
+            fn _marching_ants(x: usize, y: usize, _: usize, _: usize) -> u32 {
+                if (x + y + $offset) & 2 == 0 {
+                    YELLOW
+                } else {
+                    PURPLE
+                }
+            }
+
+            _marching_ants
+        }};
+    }
+
+    match frame_counter & 0b1_1000 {
+        0 => marching_ants!(0),
+        0b0_1000 => marching_ants!(1),
+        0b1_0000 => marching_ants!(2),
+        _ => marching_ants!(3),
+    }
+}
+
 #[inline]
 pub fn update_and_render(
     framebuffer: &mut Framebuffer,
@@ -151,7 +177,13 @@ pub fn update_and_render(
     );
 
     let (p_x, p_y) = p_xy(x, y);
-    framebuffer.draw_rect(p_x as usize - 1, p_y as usize - 1, 6, 10, YELLOW);
+    framebuffer.draw_rect_with_shader(
+        p_x as usize - 1,
+        p_y as usize - 1,
+        6,
+        10,
+        marching_ants(state.frame_counter),
+    );
 
     match input.gamepad {
         Button::A => framebuffer.clear_to(GREEN),
@@ -181,4 +213,6 @@ pub fn update_and_render(
             state.cursor += 1;
         }
     }
+
+    state.frame_counter += 1;
 }
