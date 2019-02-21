@@ -109,8 +109,10 @@ const HEX_HEIGHT: u8 = 8;
 const HALF_HEX_HEIGHT: u8 = HEX_HEIGHT / 2;
 const EDGE_OFFSET: u8 = 6;
 
+const ROW_TYPES: u8 = 3;
+
 fn p_xy(x: u8, y: u8) -> (u8, u8) {
-    let x_offset = (y % 3) * HEX_WIDTH;
+    let x_offset = (y % ROW_TYPES) * HEX_WIDTH;
     if x & 1 == 0 {
         (
             x * 6 + x_offset + EDGE_OFFSET,
@@ -193,24 +195,58 @@ pub fn update_and_render(
         _ => {}
     }
 
+    let is_left_side = x & 1 == 0;
+    let row_type = y % ROW_TYPES;
+
     if input.pressed_this_frame(Button::Up) {
-        if y > 0 {
-            state.cursor = state.cursor.saturating_sub(GRID_WIDTH as usize);
+        let offset = match (is_left_side, row_type) {
+            (true, 0) => GRID_WIDTH as usize + 1,
+            (true, 1) => GRID_WIDTH as usize - 1,
+            (true, _) => GRID_WIDTH as usize - 1,
+            (false, 0) => GRID_WIDTH as usize * 2 + 1,
+            (false, 1) => GRID_WIDTH as usize * 2 + 1,
+            (false, _) => GRID_WIDTH as usize + 1,
+        };
+
+        if state.cursor > offset {
+            state.cursor -= offset;
         }
     }
     if input.pressed_this_frame(Button::Down) {
-        if state.cursor + (GRID_WIDTH as usize) < GRID_LENGTH as usize {
-            state.cursor += GRID_WIDTH as usize;
+        let offset = match (is_left_side, row_type) {
+            (true, 0) => GRID_WIDTH as usize * 2 - 1,
+            (true, 1) => GRID_WIDTH as usize * 2 - 1,
+            (true, _) => GRID_WIDTH as usize * 2 + 1,
+            (false, 0) => GRID_WIDTH as usize - 1,
+            (false, 1) => GRID_WIDTH as usize * 2 + 1,
+            (false, _) => GRID_WIDTH as usize + 1,
+        };
+        if state.cursor + offset < GRID_LENGTH as usize {
+            state.cursor += offset;
         }
     }
     if input.pressed_this_frame(Button::Left) {
-        if x > 0 {
-            state.cursor = state.cursor.saturating_sub(1);
+        if is_left_side {
+            if x > 0 {
+                state.cursor = state.cursor.saturating_sub(1);
+            }
+        } else {
+            let offset = GRID_WIDTH as usize + 1;
+            if state.cursor + offset < GRID_LENGTH as usize {
+                state.cursor += offset;
+            }
         }
     }
     if input.pressed_this_frame(Button::Right) {
-        if x < GRID_WIDTH - 1 {
-            state.cursor += 1;
+        if is_left_side {
+            if x < GRID_WIDTH - 1 {
+                state.cursor += 1;
+            }
+        } else {
+            let offset = GRID_WIDTH as usize + 1;
+            if state.cursor >= offset {
+                state.cursor -= offset;
+            }
         }
     }
 
