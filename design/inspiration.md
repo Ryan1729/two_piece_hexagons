@@ -4,7 +4,7 @@ I've done some stuff involving hexagon grids before and I've always been unsatis
 
 Well, I think I have a solution to the first of those problems:
 
-![a hexagon grid with two cursors on it which each take up have a hexagon](./2-piece-hexagons.png)
+![a hexagon grid with two cursors on it which each take up half a hexagon](./2-piece-hexagons.png)
 
 instead of six interior 60 degree angles we have two 90 degree angles and four 90 + 45 = 135 angles. This looks decent (to me at least) even at a low resolution. The distance between the horizontal and vertical extrema in each hexagon in this picture is 8 pixels. The adjacent hexagons in the grid intrude onto the 8 by 8 square, but the center of the intruding hexagon is exactly on the corner of the square though, so the hexagon grid stays aligned within a 4by 4 square grid. Additionally if you allow a cursor to be placed only on the left or right of each hexagon, then four-way movement becomes unambiguous. (These last two comments are less surprising if you are aware of the double-width method of indexing a hexagon grid.)
 
