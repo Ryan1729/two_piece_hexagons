@@ -150,6 +150,51 @@ fn marching_ants(frame_counter: usize) -> fn(usize, usize, usize, usize) -> u32 
     }
 }
 
+//see `design/gridMovement.md` for the derivation of this table.
+static MOVEMENT: [i8; 24] = {
+    const W: i8 = GRID_WIDTH as i8;
+
+    [
+        -(W + 1),
+        2 * W - 1,
+        W - 1,
+        1,
+        -(2 * W + 1),
+        W - 1,
+        -1,
+        -(W + 1),
+        -(W - 1),
+        2 * W + 1,
+        W - 1,
+        1,
+        -(2 * W + 1),
+        W - 1,
+        -1,
+        -(W - 1),
+        -(W - 1),
+        2 * W + 1,
+        W + 1,
+        1,
+        -(2 * W - 1),
+        W + 1,
+        -1,
+        -(W - 1),
+    ]
+};
+
+enum Dir {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
+fn get_movement_offset(x: u8, y: u8, dir: Dir) -> i8 {
+    let index = ((y % ROW_TYPES) << 3) | ((x & 1) << 2) | dir as u8;
+
+    MOVEMENT[index as usize]
+}
+
 #[inline]
 pub fn update_and_render(
     framebuffer: &mut Framebuffer,
@@ -195,59 +240,35 @@ pub fn update_and_render(
         _ => {}
     }
 
-    let is_left_side = x & 1 == 0;
-    let row_type = y % ROW_TYPES;
+    macro_rules! move_hex {
+        ($x: expr, $y: expr, $dir: expr) => {
+            let offset: i8 = get_movement_offset($x, $y, $dir);
+
+            let new_cursor = state.cursor.wrapping_add(offset as usize);
+
+            if new_cursor < GRID_LENGTH {
+                let width = GRID_WIDTH as usize;
+                let new_x = new_cursor % width;
+                let looped =
+                    (x == 0 && new_x == width - 1) || (x as usize == width - 1 && new_x == 0);
+                if !looped {
+                    state.cursor = new_cursor;
+                }
+            }
+        };
+    }
 
     if input.pressed_this_frame(Button::Up) {
-        let offset = match (is_left_side, row_type) {
-            (true, 0) => GRID_WIDTH as usize + 1,
-            (true, 1) => GRID_WIDTH as usize - 1,
-            (true, _) => GRID_WIDTH as usize - 1,
-            (false, 0) => GRID_WIDTH as usize * 2 + 1,
-            (false, 1) => GRID_WIDTH as usize * 2 + 1,
-            (false, _) => GRID_WIDTH as usize + 1,
-        };
-
-        if state.cursor > offset {
-            state.cursor -= offset;
-        }
+        move_hex!(x, y, Dir::Up);
     }
     if input.pressed_this_frame(Button::Down) {
-        let offset = match (is_left_side, row_type) {
-            (true, 0) => GRID_WIDTH as usize * 2 - 1,
-            (true, 1) => GRID_WIDTH as usize * 2 - 1,
-            (true, _) => GRID_WIDTH as usize * 2 + 1,
-            (false, 0) => GRID_WIDTH as usize - 1,
-            (false, 1) => GRID_WIDTH as usize * 2 + 1,
-            (false, _) => GRID_WIDTH as usize + 1,
-        };
-        if state.cursor + offset < GRID_LENGTH as usize {
-            state.cursor += offset;
-        }
+        move_hex!(x, y, Dir::Down);
     }
     if input.pressed_this_frame(Button::Left) {
-        if is_left_side {
-            if x > 0 {
-                state.cursor = state.cursor.saturating_sub(1);
-            }
-        } else {
-            let offset = GRID_WIDTH as usize + 1;
-            if state.cursor + offset < GRID_LENGTH as usize {
-                state.cursor += offset;
-            }
-        }
+        move_hex!(x, y, Dir::Left);
     }
     if input.pressed_this_frame(Button::Right) {
-        if is_left_side {
-            if x < GRID_WIDTH - 1 {
-                state.cursor += 1;
-            }
-        } else {
-            let offset = GRID_WIDTH as usize + 1;
-            if state.cursor >= offset {
-                state.cursor -= offset;
-            }
-        }
+        move_hex!(x, y, Dir::Right);
     }
 
     state.frame_counter += 1;

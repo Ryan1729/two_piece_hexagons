@@ -16,15 +16,15 @@ Note formula contains a formula for a number that should be *added* to the given
 | 0        | Left Side       | Right              |     1   |
 | 0        | Right Side      | Up                 |-(2W + 1)|
 | 0        | Right Side      | Down               |  W - 1  |
-| 0        | Right Side      | Left               |     1   |
-| 0        | Right Side      | Right              |  W + 1  |
-| 1        | Left Side       | Up                 |  W - 1  |
+| 0        | Right Side      | Left               |    -1   |
+| 0        | Right Side      | Right              |-(W + 1) |
+| 1        | Left Side       | Up                 |-(W - 1) |
 | 1        | Left Side       | Down               |  2W + 1 |
 | 1        | Left Side       | Left               |  W - 1  |
 | 1        | Left Side       | Right              |     1   |
-| 1        | Right Side      | Up                 |  W + 1  |
+| 1        | Right Side      | Up                 |-(2W + 1)|
 | 1        | Right Side      | Down               |  W - 1  |
-| 1        | Right Side      | Left               |     1   |
+| 1        | Right Side      | Left               |    -1   |
 | 1        | Right Side      | Right              |-(W - 1) |
 | 2        | Left Side       | Up                 |-(W - 1) |
 | 2        | Left Side       | Down               | 2W + 1  |
@@ -32,7 +32,7 @@ Note formula contains a formula for a number that should be *added* to the given
 | 2        | Left Side       | Right              |     1   |
 | 2        | Right Side      | Up                 |-(2W - 1)|
 | 2        | Right Side      | Down               |   W + 1 |
-| 2        | Right Side      | Left               |     1   |
+| 2        | Right Side      | Left               |    -1   |
 | 2        | Right Side      | Right              |-(W - 1) |
 |          |                 |                    |         |
 
