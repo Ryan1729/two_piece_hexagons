@@ -8,9 +8,47 @@ const GRID_LENGTH: usize = GRID_WIDTH as usize * GRID_HEIGHT as usize;
 
 type Grid = [u8; GRID_LENGTH];
 
+#[derive(Clone, Copy)]
+enum Cursor {
+    Unselected(usize),
+    Selected(usize, usize),
+}
+
+impl Cursor {
+    fn wrapping_add(self, other: usize) -> Cursor {
+        use Cursor::*;
+        match self {
+            Unselected(c) => Unselected(c.wrapping_add(other)),
+            Selected(c1, c2) => Selected(c1, c2.wrapping_add(other)),
+        }
+    }
+}
+
+use std::convert::From;
+
+impl From<Cursor> for usize {
+    fn from(c: Cursor) -> Self {
+        use Cursor::*;
+        match c {
+            Unselected(c) => c,
+            Selected(_, c2) => c2,
+        }
+    }
+}
+
+impl Cursor {
+    fn iter(&self) -> impl Iterator<Item = usize> {
+        use Cursor::*;
+        match *self {
+            Unselected(c) => vec![c].into_iter(),
+            Selected(c1, c2) => vec![c1, c2].into_iter(),
+        }
+    }
+}
+
 pub struct GameState {
     grid: Grid,
-    cursor: usize,
+    cursor: Cursor,
     frame_counter: usize,
 }
 
@@ -30,7 +68,7 @@ impl GameState {
 
         GameState {
             grid,
-            cursor: GRID_WIDTH as usize + 1,
+            cursor: Cursor::Unselected(GRID_WIDTH as usize + 1),
             frame_counter: 0,
         }
     }
@@ -195,6 +233,13 @@ fn get_movement_offset(x: u8, y: u8, dir: Dir) -> i8 {
     MOVEMENT[index as usize]
 }
 
+fn i_to_xy(i: usize) -> (u8, u8) {
+    (
+        (i % GRID_WIDTH as usize) as u8,
+        (i / GRID_WIDTH as usize) as u8,
+    )
+}
+
 #[inline]
 pub fn update_and_render(
     framebuffer: &mut Framebuffer,
@@ -218,37 +263,49 @@ pub fn update_and_render(
         }
     }
 
-    let (x, y) = (
-        (state.cursor % GRID_WIDTH as usize) as u8,
-        (state.cursor / GRID_WIDTH as usize) as u8,
-    );
-
-    let (p_x, p_y) = p_xy(x, y);
-    framebuffer.draw_rect_with_shader(
-        p_x as usize - 1,
-        p_y as usize - 1,
-        6,
-        10,
-        marching_ants(state.frame_counter),
-    );
+    for index in state.cursor.iter() {
+        let (x, y) = i_to_xy(index);
+        let (p_x, p_y) = p_xy(x, y);
+        framebuffer.draw_rect_with_shader(
+            p_x as usize - 1,
+            p_y as usize - 1,
+            6,
+            10,
+            marching_ants(state.frame_counter),
+        );
+    }
 
     match input.gamepad {
-        Button::A => framebuffer.clear_to(GREEN),
         Button::B => framebuffer.clear_to(BLUE),
         Button::Select => framebuffer.clear_to(WHITE),
         Button::Start => framebuffer.clear_to(RED),
         _ => {}
     }
 
+    if input.pressed_this_frame(Button::A) {
+        state.cursor = match state.cursor {
+            Cursor::Unselected(c) => Cursor::Selected(c, c),
+            Cursor::Selected(c1, c2) => {
+                state.grid.swap(c1, c2);
+                Cursor::Unselected(c2)
+            }
+        };
+    }
+
     macro_rules! move_hex {
-        ($x: expr, $y: expr, $dir: expr) => {
-            let offset: i8 = get_movement_offset($x, $y, $dir);
+        ($dir: expr) => {
+            let cursor_num: usize = state.cursor.into();
+
+            let (x, y) = i_to_xy(cursor_num);
+
+            let offset: i8 = get_movement_offset(x, y, $dir);
 
             let new_cursor = state.cursor.wrapping_add(offset as usize);
+            let new_cursor_num: usize = new_cursor.into();
 
-            if new_cursor < GRID_LENGTH {
+            if new_cursor_num < GRID_LENGTH {
                 let width = GRID_WIDTH as usize;
-                let new_x = new_cursor % width;
+                let new_x = new_cursor_num % width;
                 let looped =
                     (x == 0 && new_x == width - 1) || (x as usize == width - 1 && new_x == 0);
                 if !looped {
@@ -259,16 +316,16 @@ pub fn update_and_render(
     }
 
     if input.pressed_this_frame(Button::Up) {
-        move_hex!(x, y, Dir::Up);
+        move_hex!(Dir::Up);
     }
     if input.pressed_this_frame(Button::Down) {
-        move_hex!(x, y, Dir::Down);
+        move_hex!(Dir::Down);
     }
     if input.pressed_this_frame(Button::Left) {
-        move_hex!(x, y, Dir::Left);
+        move_hex!(Dir::Left);
     }
     if input.pressed_this_frame(Button::Right) {
-        move_hex!(x, y, Dir::Right);
+        move_hex!(Dir::Right);
     }
 
     state.frame_counter += 1;
