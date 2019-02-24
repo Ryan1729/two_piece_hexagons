@@ -6,7 +6,17 @@ const GRID_WIDTH: u8 = 40;
 const GRID_HEIGHT: u8 = 60;
 const GRID_LENGTH: usize = GRID_WIDTH as usize * GRID_HEIGHT as usize;
 
-type Grid = [u8; GRID_LENGTH];
+type HalfHexSpec = u8;
+
+fn get_colours(mut spec: HalfHexSpec) -> (u32, u32) {
+    spec &= 0b0111_0111;
+    (
+        PALETTE[(spec & 0b111) as usize],
+        PALETTE[(spec >> 4) as usize],
+    )
+}
+
+type Grid = [Option<HalfHexSpec>; GRID_LENGTH];
 
 #[derive(Clone, Copy)]
 enum Cursor {
@@ -46,17 +56,108 @@ impl Cursor {
     }
 }
 
+struct Animation {
+    x: u8,
+    y: u8,
+    target_x: u8,
+    target_y: u8,
+    x_rate: u8,
+    y_rate: u8,
+    spec: HalfHexSpec,
+}
+
+use std::cmp::{max, min};
+
+const DELAY_FACTOR: u8 = 16;
+
+impl Animation {
+    pub fn new(i: usize, target_i: usize, spec: HalfHexSpec) -> Self {
+        let (x, y) = i_to_xy(i);
+        let (target_x, target_y) = i_to_xy(target_i);
+
+        let (x_diff, y_diff) = (
+            if target_x == x {
+                0
+            } else if x > target_x {
+                x - target_x
+            } else {
+                target_x - x
+            },
+            if target_y == y {
+                0
+            } else if y > target_y {
+                y - target_y
+            } else {
+                target_y - y
+            },
+        );
+
+        Animation {
+            x,
+            y,
+            x_rate: max(x_diff / DELAY_FACTOR, 1),
+            y_rate: max(y_diff / DELAY_FACTOR, 1),
+            target_x,
+            target_y,
+            spec,
+        }
+    }
+
+    pub fn is_complete(&self) -> bool {
+        self.x == self.target_x && self.y == self.target_y
+    }
+
+    pub fn approach_target(&mut self) {
+        let (d_x, d_y) = self.get_delta();
+
+        self.x = match d_x {
+            x if x > 0 => self.x.saturating_add(x as u8),
+            x if x < 0 => self.x.saturating_sub(x.abs() as u8),
+            _ => self.x,
+        };
+        self.y = match d_y {
+            y if y > 0 => self.y.saturating_add(y as u8),
+            y if y < 0 => self.y.saturating_sub(y.abs() as u8),
+            _ => self.y,
+        };
+    }
+
+    fn get_delta(&self) -> (i8, i8) {
+        (
+            if self.target_x == self.x {
+                0
+            } else if self.x > self.target_x {
+                let x_diff = self.x - self.target_x;
+                -(min(x_diff, self.x_rate) as i8)
+            } else {
+                let x_diff = self.target_x - self.x;
+                min(x_diff, self.x_rate) as i8
+            },
+            if self.target_y == self.y {
+                0
+            } else if self.y > self.target_y {
+                let y_diff = self.y - self.target_y;
+                -(min(y_diff, self.y_rate) as i8)
+            } else {
+                let y_diff = self.target_y - self.y;
+                min(y_diff, self.y_rate) as i8
+            },
+        )
+    }
+}
+
 pub struct GameState {
     grid: Grid,
     cursor: Cursor,
     frame_counter: usize,
+    animations: Vec<Animation>,
 }
 
 fn new_grid() -> Grid {
-    let mut grid: Grid = [0; GRID_LENGTH];
-    let mut c: u8 = 0;
+    let mut grid: Grid = [None; GRID_LENGTH];
+    let mut c: HalfHexSpec = 0;
     for i in 0..GRID_LENGTH {
-        grid[i] = c;
+        grid[i] = Some(c);
         c = c.wrapping_add(1);
     }
     grid
@@ -70,6 +171,7 @@ impl GameState {
             grid,
             cursor: Cursor::Unselected(GRID_WIDTH as usize + 1),
             frame_counter: 0,
+            animations: Vec::with_capacity(8),
         }
     }
 }
@@ -132,14 +234,6 @@ impl State for EntireState {
     fn get_frame_buffer(&self) -> &[u32] {
         &self.framebuffer.buffer
     }
-}
-
-fn get_colours(mut spec: u8) -> (u32, u32) {
-    spec &= 0b0111_0111;
-    (
-        PALETTE[(spec & 0b111) as usize],
-        PALETTE[(spec >> 4) as usize],
-    )
 }
 
 const HEX_WIDTH: u8 = 4;
@@ -240,6 +334,21 @@ fn i_to_xy(i: usize) -> (u8, u8) {
     )
 }
 
+fn xy_to_i(x: u8, y: u8) -> usize {
+    y as usize * GRID_WIDTH as usize + x as usize
+}
+
+fn draw_hexagon(framebuffer: &mut Framebuffer, x: u8, y: u8, spec: HalfHexSpec) {
+    let (inside, outline) = get_colours(spec);
+
+    let (p_x, p_y) = p_xy(x, y);
+    if x & 1 == 0 {
+        framebuffer.hexagon_left(p_x, p_y, inside, outline);
+    } else {
+        framebuffer.hexagon_right(p_x, p_y, inside, outline);
+    }
+}
+
 #[inline]
 pub fn update_and_render(
     framebuffer: &mut Framebuffer,
@@ -247,32 +356,16 @@ pub fn update_and_render(
     input: Input,
     _speaker: &mut Speaker,
 ) {
-    framebuffer.clear_to(framebuffer.buffer[0]);
+    for index in (0..state.animations.len()).rev() {
+        let animation = &mut state.animations[index];
+        animation.approach_target();
 
-    for y in 0..GRID_HEIGHT {
-        for x in 0..GRID_WIDTH {
-            let (inside, outline) =
-                get_colours(state.grid[y as usize * GRID_WIDTH as usize + x as usize]);
+        if animation.is_complete() {
+            let i = xy_to_i(animation.x, animation.y);
 
-            let (p_x, p_y) = p_xy(x, y);
-            if x & 1 == 0 {
-                framebuffer.hexagon_left(p_x, p_y, inside, outline);
-            } else {
-                framebuffer.hexagon_right(p_x, p_y, inside, outline);
-            }
+            state.grid[i] = Some(animation.spec);
+            state.animations.swap_remove(index);
         }
-    }
-
-    for index in state.cursor.iter() {
-        let (x, y) = i_to_xy(index);
-        let (p_x, p_y) = p_xy(x, y);
-        framebuffer.draw_rect_with_shader(
-            p_x as usize - 1,
-            p_y as usize - 1,
-            6,
-            10,
-            marching_ants(state.frame_counter),
-        );
     }
 
     match input.gamepad {
@@ -283,11 +376,20 @@ pub fn update_and_render(
     }
 
     if input.pressed_this_frame(Button::A) {
-        state.cursor = match state.cursor {
-            Cursor::Unselected(c) => Cursor::Selected(c, c),
+        match state.cursor {
+            Cursor::Unselected(c) => {
+                if state.grid[c].is_some() {
+                    state.cursor = Cursor::Selected(c, c);
+                }
+            }
             Cursor::Selected(c1, c2) => {
-                state.grid.swap(c1, c2);
-                Cursor::Unselected(c2)
+                if let (Some(h1), Some(h2)) = (state.grid[c1], state.grid[c2]) {
+                    state.grid[c1] = None;
+                    state.grid[c2] = None;
+                    state.animations.push(Animation::new(c1, c2, h1));
+                    state.animations.push(Animation::new(c2, c1, h2));
+                    state.cursor = Cursor::Unselected(c2);
+                }
             }
         };
     }
@@ -326,6 +428,32 @@ pub fn update_and_render(
     }
     if input.pressed_this_frame(Button::Right) {
         move_hex!(Dir::Right);
+    }
+
+    framebuffer.clear_to(framebuffer.buffer[0]);
+
+    for y in 0..GRID_HEIGHT {
+        for x in 0..GRID_WIDTH {
+            if let Some(spec) = state.grid[xy_to_i(x, y)] {
+                draw_hexagon(framebuffer, x, y, spec);
+            }
+        }
+    }
+
+    for index in state.cursor.iter() {
+        let (x, y) = i_to_xy(index);
+        let (p_x, p_y) = p_xy(x, y);
+        framebuffer.draw_rect_with_shader(
+            p_x as usize - 1,
+            p_y as usize - 1,
+            6,
+            10,
+            marching_ants(state.frame_counter),
+        );
+    }
+
+    for &Animation { x, y, spec, .. } in state.animations.iter() {
+        draw_hexagon(framebuffer, x, y, spec);
     }
 
     state.frame_counter += 1;
