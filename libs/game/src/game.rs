@@ -1,10 +1,21 @@
-use features::{GLOBAL_ERROR_LOGGER, GLOBAL_LOGGER};
+use features::{log, GLOBAL_ERROR_LOGGER, GLOBAL_LOGGER};
 use platform_types::{Button, Input, Speaker, State, StateParams, SFX};
 use rendering::{Framebuffer, BLUE, GREEN, PALETTE, PURPLE, RED, WHITE, YELLOW};
 
 const GRID_WIDTH: u8 = 40;
 const GRID_HEIGHT: u8 = 60;
 const GRID_LENGTH: usize = GRID_WIDTH as usize * GRID_HEIGHT as usize;
+
+type Grid = [Option<HalfHexSpec>; GRID_LENGTH];
+
+macro_rules! on_left {
+    ($x: expr) => {
+        $x & 1 == 0
+    };
+    ($x: expr, bit) => {
+        $x & 1
+    };
+}
 
 type HalfHexSpec = u8;
 
@@ -15,8 +26,6 @@ fn get_colours(mut spec: HalfHexSpec) -> (u32, u32) {
         PALETTE[(spec >> 4) as usize],
     )
 }
-
-type Grid = [Option<HalfHexSpec>; GRID_LENGTH];
 
 #[derive(Clone, Copy)]
 enum Cursor {
@@ -245,7 +254,7 @@ const ROW_TYPES: u8 = 3;
 
 fn p_xy(x: u8, y: u8) -> (u8, u8) {
     let x_offset = (y % ROW_TYPES) * HEX_WIDTH;
-    if x & 1 == 0 {
+    if on_left!(x) {
         (
             x * 6 + x_offset + EDGE_OFFSET,
             y * HALF_HEX_HEIGHT + EDGE_OFFSET,
@@ -322,7 +331,7 @@ enum Dir {
 }
 
 fn get_movement_offset(x: u8, y: u8, dir: Dir) -> i8 {
-    let index = ((y % ROW_TYPES) << 3) | ((x & 1) << 2) | dir as u8;
+    let index = ((y % ROW_TYPES) << 3) | (on_left!(x, bit) << 2) | dir as u8;
 
     MOVEMENT[index as usize]
 }
@@ -342,7 +351,7 @@ fn draw_hexagon(framebuffer: &mut Framebuffer, x: u8, y: u8, spec: HalfHexSpec) 
     let (inside, outline) = get_colours(spec);
 
     let (p_x, p_y) = p_xy(x, y);
-    if x & 1 == 0 {
+    if on_left!(x) {
         framebuffer.hexagon_left(p_x, p_y, inside, outline);
     } else {
         framebuffer.hexagon_right(p_x, p_y, inside, outline);
@@ -356,15 +365,29 @@ pub fn update_and_render(
     input: Input,
     _speaker: &mut Speaker,
 ) {
-    for index in (0..state.animations.len()).rev() {
-        let animation = &mut state.animations[index];
+    //
+    //UPDATE
+    //
+    for animation_index in (0..state.animations.len()).rev() {
+        let animation = &mut state.animations[animation_index];
         animation.approach_target();
 
         if animation.is_complete() {
-            let i = xy_to_i(animation.x, animation.y);
+            let index = xy_to_i(animation.x, animation.y);
 
-            state.grid[i] = Some(animation.spec);
-            state.animations.swap_remove(index);
+            state.grid[index] = Some(animation.spec);
+
+            let other_index = if on_left!(animation.x) {
+                index + 1
+            } else {
+                index - 1
+            };
+            if state.grid[other_index].map(get_colours) == state.grid[index].map(get_colours) {
+                state.grid[other_index] = None;
+                state.grid[index] = None;
+            }
+
+            state.animations.swap_remove(animation_index);
         }
     }
 
@@ -429,6 +452,10 @@ pub fn update_and_render(
     if input.pressed_this_frame(Button::Right) {
         move_hex!(Dir::Right);
     }
+
+    //
+    // RENDER
+    //
 
     framebuffer.clear_to(framebuffer.buffer[0]);
 
