@@ -291,6 +291,18 @@ fn marching_ants(frame_counter: usize) -> fn(usize, usize, usize, usize) -> u32 
     }
 }
 
+fn is_index_next_to(x: u8, y: u8, index: usize) -> bool {
+    if index < GRID_LENGTH {
+        let width = GRID_WIDTH as usize;
+        let new_x = index % width;
+        let looped = (x == 0 && new_x == width - 1) || (x as usize == width - 1 && new_x == 0);
+        if !looped {
+            return true;
+        }
+    }
+    false
+}
+
 //see `design/gridMovement.md` for the derivation of this table.
 static MOVEMENT: [i8; 24] = {
     const W: i8 = GRID_WIDTH as i8;
@@ -336,6 +348,17 @@ fn get_movement_offset(x: u8, y: u8, dir: Dir) -> i8 {
     MOVEMENT[index as usize]
 }
 
+fn get_hex_index(index: usize, dir: Dir) -> Option<usize> {
+    let (x, y) = i_to_xy(index);
+    let new_index = index.wrapping_add(get_movement_offset(x, y, dir) as usize);
+
+    if is_index_next_to(x, y, new_index) {
+        Some(new_index)
+    } else {
+        None
+    }
+}
+
 fn i_to_xy(i: usize) -> (u8, u8) {
     (
         (i % GRID_WIDTH as usize) as u8,
@@ -355,6 +378,29 @@ fn draw_hexagon(framebuffer: &mut Framebuffer, x: u8, y: u8, spec: HalfHexSpec) 
         framebuffer.hexagon_left(p_x, p_y, inside, outline);
     } else {
         framebuffer.hexagon_right(p_x, p_y, inside, outline);
+    }
+}
+
+fn add_falling_animations(grid: &mut Grid, animations: &mut Vec<Animation>) {
+    for index in 0..grid.len() {
+        if let Some(half_hex) = grid[index] {
+            let right_index = get_hex_index(index, Dir::Right);
+            let right_down_index = right_index.and_then(|i| get_hex_index(i, Dir::Down));
+            let down_index = get_hex_index(index, Dir::Down);
+
+            if let (Some(right_index), Some(right_down_index), Some(down_index)) =
+                (right_index, right_down_index, down_index)
+            {
+                if [right_index, right_down_index, down_index]
+                    .into_iter()
+                    .map(|i| &grid[*i])
+                    .all(|h| h.is_none())
+                {
+                    animations.push(Animation::new(index, right_down_index, half_hex));
+                    grid[index] = None;
+                }
+            }
+        }
     }
 }
 
@@ -388,6 +434,7 @@ pub fn update_and_render(
             }
 
             state.animations.swap_remove(animation_index);
+            add_falling_animations(&mut state.grid, &mut state.animations);
         }
     }
 
@@ -417,7 +464,7 @@ pub fn update_and_render(
         };
     }
 
-    macro_rules! move_hex {
+    macro_rules! move_cursor {
         ($dir: expr) => {
             let cursor_num: usize = state.cursor.into();
 
@@ -428,29 +475,23 @@ pub fn update_and_render(
             let new_cursor = state.cursor.wrapping_add(offset as usize);
             let new_cursor_num: usize = new_cursor.into();
 
-            if new_cursor_num < GRID_LENGTH {
-                let width = GRID_WIDTH as usize;
-                let new_x = new_cursor_num % width;
-                let looped =
-                    (x == 0 && new_x == width - 1) || (x as usize == width - 1 && new_x == 0);
-                if !looped {
-                    state.cursor = new_cursor;
-                }
+            if is_index_next_to(x, y, new_cursor_num) {
+                state.cursor = new_cursor;
             }
         };
     }
 
     if input.pressed_this_frame(Button::Up) {
-        move_hex!(Dir::Up);
+        move_cursor!(Dir::Up);
     }
     if input.pressed_this_frame(Button::Down) {
-        move_hex!(Dir::Down);
+        move_cursor!(Dir::Down);
     }
     if input.pressed_this_frame(Button::Left) {
-        move_hex!(Dir::Left);
+        move_cursor!(Dir::Left);
     }
     if input.pressed_this_frame(Button::Right) {
-        move_hex!(Dir::Right);
+        move_cursor!(Dir::Right);
     }
 
     //
