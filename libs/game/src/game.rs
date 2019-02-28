@@ -1,6 +1,6 @@
 use features::{log, GLOBAL_ERROR_LOGGER, GLOBAL_LOGGER};
 use platform_types::{Button, Input, Speaker, State, StateParams, SFX};
-use rendering::{Framebuffer, BLUE, GREEN, PALETTE, PURPLE, RED, WHITE, YELLOW};
+use rendering::{Framebuffer, BLUE, GREY, PALETTE, PURPLE, RED, WHITE, YELLOW};
 
 const GRID_WIDTH: u8 = 40;
 const GRID_HEIGHT: u8 = 60;
@@ -20,7 +20,7 @@ macro_rules! on_left {
 type HalfHexSpec = u8;
 
 fn get_colours(mut spec: HalfHexSpec) -> (u32, u32) {
-    spec &= 0b0111_0111;
+    spec &= 0b0011_0011; //cut out BLACK (0b111)
     (
         PALETTE[(spec & 0b111) as usize],
         PALETTE[(spec >> 4) as usize],
@@ -166,6 +166,13 @@ fn new_grid() -> Grid {
     let mut grid: Grid = [None; GRID_LENGTH];
     let mut c: HalfHexSpec = 0;
     for i in 0..GRID_LENGTH {
+        if i < GRID_WIDTH as usize
+            || i > GRID_LENGTH - GRID_WIDTH as usize
+            || i % (GRID_WIDTH as usize) <= 1
+            || i % GRID_WIDTH as usize >= GRID_WIDTH as usize - 2
+        {
+            continue;
+        }
         grid[i] = Some(c);
         c = c.wrapping_add(1);
     }
@@ -498,7 +505,7 @@ pub fn update_and_render(
     // RENDER
     //
 
-    framebuffer.clear_to(framebuffer.buffer[0]);
+    framebuffer.clear_to(GREY);
 
     for y in 0..GRID_HEIGHT {
         for x in 0..GRID_WIDTH {

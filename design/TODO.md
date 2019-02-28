@@ -1,13 +1,11 @@
 # TODO
 
 * make hexes fall to fill space left by missing hexes
-  * stop making any colours of the hexes match the background
-  * see if adding an apron of `None` around the edges stop all the weirdnesses
-    * if not, maybe allow falling downward as well? (if left-down, down and down-right are all gone)
+  * allow falling downward as well? (if left-down, down and down-right are all gone)
     * if we must have weirdness around the edges, we should render something on the edges to indicate that.
+      * for example, the right side halves on the top row cannot fall.
       * maybe try the next one first?
   * explore falling in unconventional directions. Maybe towards center?
-  * for example, the right side halves on the top row cannot fall.
   * add clacking sound when things fall
 
 
