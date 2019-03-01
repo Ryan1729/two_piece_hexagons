@@ -75,6 +75,32 @@ struct Animation {
     spec: HalfHexSpec,
 }
 
+fn advance_animations(state: &mut GameState) {
+    for animation_index in (0..state.animations.len()).rev() {
+        let animation = &mut state.animations[animation_index];
+        animation.approach_target();
+
+        if animation.is_complete() {
+            let index = xy_to_i(animation.x, animation.y);
+
+            state.grid[index] = Some(animation.spec);
+
+            let other_index = if on_left!(animation.x) {
+                index + 1
+            } else {
+                index - 1
+            };
+            if state.grid[other_index].map(get_colours) == state.grid[index].map(get_colours) {
+                state.grid[other_index] = None;
+                state.grid[index] = None;
+            }
+
+            state.animations.swap_remove(animation_index);
+            add_falling_animations(&mut state.grid, &mut state.animations);
+        }
+    }
+}
+
 use std::cmp::{max, min};
 
 const DELAY_FACTOR: u8 = 16;
@@ -183,12 +209,17 @@ impl GameState {
     pub fn new(_seed: [u8; 16]) -> GameState {
         let grid: Grid = new_grid();
 
-        GameState {
+        let mut output = GameState {
             grid,
             cursor: Cursor::Unselected(GRID_WIDTH as usize + 1),
             frame_counter: 0,
-            animations: Vec::with_capacity(8),
-        }
+            animations: Vec::with_capacity(GRID_WIDTH as usize),
+        };
+
+        add_falling_animations(&mut output.grid, &mut output.animations);
+        advance_animations(&mut output);
+
+        output
     }
 }
 
@@ -421,29 +452,7 @@ pub fn update_and_render(
     //
     //UPDATE
     //
-    for animation_index in (0..state.animations.len()).rev() {
-        let animation = &mut state.animations[animation_index];
-        animation.approach_target();
-
-        if animation.is_complete() {
-            let index = xy_to_i(animation.x, animation.y);
-
-            state.grid[index] = Some(animation.spec);
-
-            let other_index = if on_left!(animation.x) {
-                index + 1
-            } else {
-                index - 1
-            };
-            if state.grid[other_index].map(get_colours) == state.grid[index].map(get_colours) {
-                state.grid[other_index] = None;
-                state.grid[index] = None;
-            }
-
-            state.animations.swap_remove(animation_index);
-            add_falling_animations(&mut state.grid, &mut state.animations);
-        }
-    }
+    advance_animations(state);
 
     match input.gamepad {
         Button::B => framebuffer.clear_to(BLUE),

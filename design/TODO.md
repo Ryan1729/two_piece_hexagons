@@ -1,11 +1,9 @@
 # TODO
 
 * make hexes fall to fill space left by missing hexes
-  * allow falling downward as well? (if left-down, down and down-right are all gone)
-    * if we must have weirdness around the edges, we should render something on the edges to indicate that.
-      * for example, the right side halves on the top row cannot fall.
-      * maybe try the next one first?
   * explore falling in unconventional directions. Maybe towards center?
+  * if we must have weirdness around the edges, we should render something on the edges to indicate that.
+      * for example, the right side halves on the top row cannot fall.
   * add clacking sound when things fall
 
 
