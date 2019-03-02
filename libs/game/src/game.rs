@@ -373,6 +373,7 @@ static MOVEMENT: [i8; 24] = {
     ]
 };
 
+#[derive(Clone, Copy)]
 enum Dir {
     Up,
     Down,
@@ -422,20 +423,66 @@ fn draw_hexagon(framebuffer: &mut Framebuffer, x: u8, y: u8, spec: HalfHexSpec) 
 fn add_falling_animations(grid: &mut Grid, animations: &mut Vec<Animation>) {
     for index in 0..grid.len() {
         if let Some(half_hex) = grid[index] {
-            let right_index = get_hex_index(index, Dir::Right);
-            let right_down_index = right_index.and_then(|i| get_hex_index(i, Dir::Down));
-            let down_index = get_hex_index(index, Dir::Down);
+            let (x, y) = i_to_xy(index);
 
-            if let (Some(right_index), Some(right_down_index), Some(down_index)) =
-                (right_index, right_down_index, down_index)
+            let should_fall_right = x < GRID_WIDTH / 2;
+            let should_fall_down = y < GRID_HEIGHT / 2;
+
+            // TODO is there a good reason to keep treating `x` differently?
+            // How about forward_x_backward_y, forward_x, forward_xy  => forward_xy?
+            let (forward_x, backward_x) = if should_fall_right {
+                (Dir::Right, Dir::Left)
+            } else {
+                (Dir::Left, Dir::Right)
+            };
+
+            let forward_y = if should_fall_down {
+                Dir::Down
+            } else {
+                (Dir::Up)
+            };
+
+            let forward_x_index = get_hex_index(index, forward_x);
+            let forward_xy_index = forward_x_index.and_then(|i| get_hex_index(i, forward_y));
+            let forward_y_index = get_hex_index(index, forward_y);
+            let backward_x_forward_y_index =
+                forward_y_index.and_then(|i| get_hex_index(i, backward_x));
+
+            if let (Some(forward_x_index), Some(forward_xy_index), Some(forward_y_index)) =
+                (forward_x_index, forward_xy_index, forward_y_index)
             {
-                if [right_index, right_down_index, down_index]
+                if [forward_x_index, forward_xy_index, forward_y_index]
                     .into_iter()
                     .map(|i| &grid[*i])
                     .all(|h| h.is_none())
                 {
-                    animations.push(Animation::new(index, right_down_index, half_hex));
+                    animations.push(Animation::new(index, forward_xy_index, half_hex));
                     grid[index] = None;
+                    continue;
+                }
+            }
+
+            if let (
+                Some(backward_x_forward_y_index),
+                Some(forward_y_index),
+                Some(forward_xy_index),
+            ) = (
+                backward_x_forward_y_index,
+                forward_y_index,
+                forward_xy_index,
+            ) {
+                if [
+                    backward_x_forward_y_index,
+                    forward_y_index,
+                    forward_xy_index,
+                ]
+                .into_iter()
+                .map(|i| &grid[*i])
+                .all(|h| h.is_none())
+                {
+                    animations.push(Animation::new(index, forward_xy_index, half_hex));
+                    grid[index] = None;
+                    continue;
                 }
             }
         }
