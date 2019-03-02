@@ -428,63 +428,61 @@ fn add_falling_animations(grid: &mut Grid, animations: &mut Vec<Animation>) {
             let should_fall_right = x < GRID_WIDTH / 2;
             let should_fall_down = y < GRID_HEIGHT / 2;
 
-            // TODO is there a good reason to keep treating `x` differently?
-            // How about forward_x_backward_y, forward_x, forward_xy  => forward_xy?
             let (forward_x, backward_x) = if should_fall_right {
                 (Dir::Right, Dir::Left)
             } else {
                 (Dir::Left, Dir::Right)
             };
 
-            let forward_y = if should_fall_down {
-                Dir::Down
+            let (forward_y, backward_y) = if should_fall_down {
+                (Dir::Down, Dir::Up)
             } else {
-                (Dir::Up)
+                (Dir::Up, Dir::Down)
             };
+
+            macro_rules! move_if_possible {
+                //pretend these names are more generic
+                (target $forward_xy_index:expr, $forward_x_index:expr, $forward_y_index: expr) => {
+                    if let (Some(forward_x_index), Some(forward_xy_index), Some(forward_y_index)) =
+                        ($forward_x_index, $forward_xy_index, $forward_y_index)
+                    {
+                        if [forward_x_index, forward_xy_index, forward_y_index]
+                            .into_iter()
+                            .map(|i| &grid[*i])
+                            .all(|h| h.is_none())
+                        {
+                            animations.push(Animation::new(index, forward_xy_index, half_hex));
+                            grid[index] = None;
+                            continue;
+                        }
+                    }
+                };
+            }
 
             let forward_x_index = get_hex_index(index, forward_x);
             let forward_xy_index = forward_x_index.and_then(|i| get_hex_index(i, forward_y));
             let forward_y_index = get_hex_index(index, forward_y);
+
+            //  →
+            // ↓↘
+
+            move_if_possible!(target forward_xy_index, forward_x_index, forward_y_index);
+
             let backward_x_forward_y_index =
                 forward_y_index.and_then(|i| get_hex_index(i, backward_x));
 
-            if let (Some(forward_x_index), Some(forward_xy_index), Some(forward_y_index)) =
-                (forward_x_index, forward_xy_index, forward_y_index)
-            {
-                if [forward_x_index, forward_xy_index, forward_y_index]
-                    .into_iter()
-                    .map(|i| &grid[*i])
-                    .all(|h| h.is_none())
-                {
-                    animations.push(Animation::new(index, forward_xy_index, half_hex));
-                    grid[index] = None;
-                    continue;
-                }
-            }
+            // ↙↓↘
 
-            if let (
-                Some(backward_x_forward_y_index),
-                Some(forward_y_index),
-                Some(forward_xy_index),
-            ) = (
-                backward_x_forward_y_index,
-                forward_y_index,
-                forward_xy_index,
-            ) {
-                if [
-                    backward_x_forward_y_index,
-                    forward_y_index,
-                    forward_xy_index,
-                ]
-                .into_iter()
-                .map(|i| &grid[*i])
-                .all(|h| h.is_none())
-                {
-                    animations.push(Animation::new(index, forward_xy_index, half_hex));
-                    grid[index] = None;
-                    continue;
-                }
-            }
+            move_if_possible!(target forward_xy_index, backward_x_forward_y_index, forward_y_index);
+
+            let forward_x_backward_y_index =
+                forward_x_index.and_then(|i| get_hex_index(i, backward_y));
+
+            // ↗
+            // →
+            // ↘
+
+            move_if_possible!(target forward_xy_index, forward_x_backward_y_index, forward_x_index);
         }
     }
 }
