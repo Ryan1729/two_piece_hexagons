@@ -1,4 +1,4 @@
-use features::{log, GLOBAL_ERROR_LOGGER, GLOBAL_LOGGER};
+use features::{invariants_checked, log, GLOBAL_ERROR_LOGGER, GLOBAL_LOGGER};
 use platform_types::{Button, Input, Speaker, State, StateParams, SFX};
 use rendering::{Framebuffer, BLUE, GREY, PALETTE, PURPLE, RED, WHITE, YELLOW};
 
@@ -329,7 +329,7 @@ fn marching_ants(frame_counter: usize) -> fn(usize, usize, usize, usize) -> u32 
     }
 }
 
-fn is_index_next_to(x: u8, y: u8, index: usize) -> bool {
+fn is_index_next_to(x: u8, _y: u8, index: usize) -> bool {
     if index < GRID_LENGTH {
         let width = GRID_WIDTH as usize;
         let new_x = index % width;
@@ -425,6 +425,15 @@ fn add_falling_animations(grid: &mut Grid, animations: &mut Vec<Animation>) {
         if let Some(half_hex) = grid[index] {
             let (x, y) = i_to_xy(index);
 
+            //this restriction would be unnecessary if there was an odd number of rows/columns
+            if (x == GRID_WIDTH / 2 - 1 && y == GRID_HEIGHT / 2 - 1)
+                || (x == GRID_WIDTH / 2 && y == GRID_HEIGHT / 2 - 1)
+                || (x == GRID_WIDTH / 2 - 1 && y == GRID_HEIGHT / 2)
+                || (x == GRID_WIDTH / 2 && y == GRID_HEIGHT / 2)
+            {
+                continue;
+            }
+
             let should_fall_right = x < GRID_WIDTH / 2;
             let should_fall_down = y < GRID_HEIGHT / 2;
 
@@ -501,7 +510,12 @@ pub fn update_and_render(
 
     match input.gamepad {
         Button::B => framebuffer.clear_to(BLUE),
-        Button::Select => framebuffer.clear_to(WHITE),
+        Button::Select => {
+            if invariants_checked!() {
+                log!(state.animations.len() == 0);
+            }
+            framebuffer.clear_to(WHITE)
+        }
         Button::Start => framebuffer.clear_to(RED),
         _ => {}
     }

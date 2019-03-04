@@ -1,7 +1,10 @@
 # TODO
 
+* fix apparent bug where half a hex disappears.
+  * repro: match (and therefore remove) the first two blue-outline and blue/green interior hexes which are diagonally downward from the upper left most hexes (non-counting the None apron).
+   The bug is that one half of the upper-left most hex appears to have disappeared after the hexes fell down.
+
 * make hexes fall to fill space left by missing hexes
-  * explore falling in unconventional directions. Maybe towards center?
   * if we must have weirdness around the edges, we should render something on the edges to indicate that.
       * for example, the right side halves on the top row cannot fall.
   * add clacking sound when things fall
