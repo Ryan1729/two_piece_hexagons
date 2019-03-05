@@ -6,7 +6,52 @@ const GRID_WIDTH: u8 = 40;
 const GRID_HEIGHT: u8 = 60;
 const GRID_LENGTH: usize = GRID_WIDTH as usize * GRID_HEIGHT as usize;
 
-type Grid = [Option<HalfHexSpec>; GRID_LENGTH];
+#[derive(Copy, Clone, PartialEq, Eq)]
+enum GridCell<T> {
+    Absent,
+    Present(T),
+    Animating,
+}
+
+#[allow(dead_code)]
+impl<T> GridCell<T> {
+    pub fn is_present(&self) -> bool {
+        match self {
+            GridCell::Present(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_absent(&self) -> bool {
+        match self {
+            GridCell::Absent => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_animating(&self) -> bool {
+        match self {
+            GridCell::Animating => true,
+            _ => false,
+        }
+    }
+
+    pub fn map<U, F: FnOnce(T) -> U>(self, f: F) -> GridCell<U> {
+        match self {
+            GridCell::Present(x) => GridCell::Present(f(x)),
+            GridCell::Absent => GridCell::Absent,
+            GridCell::Animating => GridCell::Animating,
+        }
+    }
+
+    pub fn and_then<U, F: FnOnce(T) -> GridCell<U>>(self, f: F) -> GridCell<U> {
+        match self {
+            GridCell::Present(x) => f(x),
+            GridCell::Absent => GridCell::Absent,
+            GridCell::Animating => GridCell::Animating,
+        }
+    }
+}
 
 macro_rules! on_left {
     ($x: expr) => {
@@ -83,7 +128,12 @@ fn advance_animations(state: &mut GameState) {
         if animation.is_complete() {
             let index = xy_to_i(animation.x, animation.y);
 
-            state.grid[index] = Some(animation.spec);
+            if state.grid[index].is_present() {
+                //hope it is moved soon?
+                continue;
+            }
+
+            state.grid[index] = GridCell::Present(animation.spec);
 
             let other_index = if on_left!(animation.x) {
                 index + 1
@@ -91,12 +141,12 @@ fn advance_animations(state: &mut GameState) {
                 index - 1
             };
             if state.grid[other_index].map(get_colours) == state.grid[index].map(get_colours) {
-                state.grid[other_index] = None;
-                state.grid[index] = None;
+                state.grid[other_index] = GridCell::Absent;
+                state.grid[index] = GridCell::Absent;
             }
 
             state.animations.swap_remove(animation_index);
-            add_falling_animations(&mut state.grid, &mut state.animations);
+            apply_gravity_once(&mut state.grid);
         }
     }
 }
@@ -188,18 +238,25 @@ pub struct GameState {
     animations: Vec<Animation>,
 }
 
+type Grid = [GridCell<HalfHexSpec>; GRID_LENGTH];
+
 fn new_grid() -> Grid {
-    let mut grid: Grid = [None; GRID_LENGTH];
+    let mut grid: Grid = [GridCell::Absent; GRID_LENGTH];
     let mut c: HalfHexSpec = 0;
+    const W: usize = GRID_WIDTH as usize * 0b1_1000;
     for i in 0..GRID_LENGTH {
-        if i < GRID_WIDTH as usize
-            || i > GRID_LENGTH - GRID_WIDTH as usize
-            || i % (GRID_WIDTH as usize) <= 1
-            || i % GRID_WIDTH as usize >= GRID_WIDTH as usize - 2
-        {
+        if i < W || i > GRID_LENGTH - W || i % W <= 1 || i % W >= W - 2 {
             continue;
         }
-        grid[i] = Some(c);
+        {
+            //debugging
+            let x = i_to_xy(i).0;
+            if x < GRID_WIDTH / 3 || x > 2 * GRID_WIDTH / 3 {
+                continue;
+            }
+        }
+
+        grid[i] = GridCell::Present(c);
         c = c.wrapping_add(1);
     }
     grid
@@ -209,17 +266,12 @@ impl GameState {
     pub fn new(_seed: [u8; 16]) -> GameState {
         let grid: Grid = new_grid();
 
-        let mut output = GameState {
+        GameState {
             grid,
             cursor: Cursor::Unselected(GRID_WIDTH as usize + 1),
             frame_counter: 0,
             animations: Vec::with_capacity(GRID_WIDTH as usize),
-        };
-
-        add_falling_animations(&mut output.grid, &mut output.animations);
-        advance_animations(&mut output);
-
-        output
+        }
     }
 }
 
@@ -420,16 +472,19 @@ fn draw_hexagon(framebuffer: &mut Framebuffer, x: u8, y: u8, spec: HalfHexSpec) 
     }
 }
 
-fn add_falling_animations(grid: &mut Grid, animations: &mut Vec<Animation>) {
+fn apply_gravity_once(grid: &mut Grid) {
     for index in 0..grid.len() {
-        if let Some(half_hex) = grid[index] {
+        if let GridCell::Present(half_hex) = grid[index] {
             let (x, y) = i_to_xy(index);
 
-            //this restriction would be unnecessary if there was an odd number of rows/columns
-            if (x == GRID_WIDTH / 2 - 1 && y == GRID_HEIGHT / 2 - 1)
-                || (x == GRID_WIDTH / 2 && y == GRID_HEIGHT / 2 - 1)
-                || (x == GRID_WIDTH / 2 - 1 && y == GRID_HEIGHT / 2)
-                || (x == GRID_WIDTH / 2 && y == GRID_HEIGHT / 2)
+            // these 8 hal-hexes are the ones in the very middle that would cause animation loops
+            // otherwise. It appears this restriction would be unnecessary if there was an odd
+            // number of rows/columns.
+            if ((x == GRID_WIDTH / 2 - 1 || x == GRID_WIDTH / 2 - 2) && y == GRID_HEIGHT / 2 - 1)
+                || ((x == GRID_WIDTH / 2 || x == GRID_WIDTH / 2 + 1) && y == GRID_HEIGHT / 2 - 2)
+                || ((x == GRID_WIDTH / 2 - 1 || x == GRID_WIDTH / 2 - 2)
+                    && y == GRID_HEIGHT / 2 + 1)
+                || ((x == GRID_WIDTH / 2 || x == GRID_WIDTH / 2 + 1) && y == GRID_HEIGHT / 2)
             {
                 continue;
             }
@@ -458,10 +513,10 @@ fn add_falling_animations(grid: &mut Grid, animations: &mut Vec<Animation>) {
                         if [forward_x_index, forward_xy_index, forward_y_index]
                             .into_iter()
                             .map(|i| &grid[*i])
-                            .all(|h| h.is_none())
+                            .all(|h| h.is_absent())
                         {
-                            animations.push(Animation::new(index, forward_xy_index, half_hex));
-                            grid[index] = None;
+                            grid[forward_xy_index] = GridCell::Present(half_hex);
+                            grid[index] = GridCell::Absent;
                             continue;
                         }
                     }
@@ -507,6 +562,7 @@ pub fn update_and_render(
     //UPDATE
     //
     advance_animations(state);
+    apply_gravity_once(&mut state.grid);
 
     match input.gamepad {
         Button::B => framebuffer.clear_to(BLUE),
@@ -523,14 +579,16 @@ pub fn update_and_render(
     if input.pressed_this_frame(Button::A) {
         match state.cursor {
             Cursor::Unselected(c) => {
-                if state.grid[c].is_some() {
+                if state.grid[c].is_present() {
                     state.cursor = Cursor::Selected(c, c);
                 }
             }
             Cursor::Selected(c1, c2) => {
-                if let (Some(h1), Some(h2)) = (state.grid[c1], state.grid[c2]) {
-                    state.grid[c1] = None;
-                    state.grid[c2] = None;
+                if let (GridCell::Present(h1), GridCell::Present(h2)) =
+                    (state.grid[c1], state.grid[c2])
+                {
+                    state.grid[c1] = GridCell::Animating;
+                    state.grid[c2] = GridCell::Animating;
                     state.animations.push(Animation::new(c1, c2, h1));
                     state.animations.push(Animation::new(c2, c1, h2));
                     state.cursor = Cursor::Unselected(c2);
@@ -577,7 +635,7 @@ pub fn update_and_render(
 
     for y in 0..GRID_HEIGHT {
         for x in 0..GRID_WIDTH {
-            if let Some(spec) = state.grid[xy_to_i(x, y)] {
+            if let GridCell::Present(spec) = state.grid[xy_to_i(x, y)] {
                 draw_hexagon(framebuffer, x, y, spec);
             }
         }
