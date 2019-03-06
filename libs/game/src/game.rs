@@ -248,13 +248,6 @@ fn new_grid() -> Grid {
         if i < W || i > GRID_LENGTH - W || i % W <= 1 || i % W >= W - 2 {
             continue;
         }
-        {
-            //debugging
-            let x = i_to_xy(i).0;
-            if x < GRID_WIDTH / 3 || x > 2 * GRID_WIDTH / 3 {
-                continue;
-            }
-        }
 
         grid[i] = GridCell::Present(c);
         c = c.wrapping_add(1);
