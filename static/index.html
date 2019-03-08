@@ -166,25 +166,20 @@
             setHeightFromMultiplier();
         };
     </script>
-    <audio id="beep" src="sounds/beep.ogg" preload="auto" controls="none" style="display: none;" volume="0.375"></audio>
-    <audio id="engine" src="sounds/engine.ogg" preload="auto" controls="none" style="display: none;" volume="0.375"></audio>
-    <audio id="light_thunk" src="sounds/light_thunk.ogg" preload="auto" controls="none" style="display: none;" volume="0.375"></audio>
-    <audio id="tinkle_to_static" src="sounds/tinkle_to_static.ogg" preload="auto" controls="none" style="display: none;" volume="0.375"></audio>
-    <audio id="womp_to_static" src="sounds/womp_to_static.ogg" preload="auto" controls="none" style="display: none;" volume="0.375"></audio>
-    <audio id="wrong" src="sounds/wrong.ogg" preload="auto" controls="none" style="display: none;" volume="0.375"></audio>
-    <audio id="warning_beeps" src="sounds/warning_beeps.ogg" preload="auto" controls="none" style="display: none;" volume="0.375"></audio>
+    <audio id="wud0" src="sounds/wud0.ogg" preload="auto" controls="none" style="display: none;" volume="0.375"></audio>
+    <audio id="wud1" src="sounds/wud1.ogg" preload="auto" controls="none" style="display: none;" volume="0.375"></audio>
+    <audio id="wud2" src="sounds/wud2.ogg" preload="auto" controls="none" style="display: none;" volume="0.375"></audio>
+    <audio id="wud3" src="sounds/wud3.ogg" preload="auto" controls="none" style="display: none;" volume="0.375"></audio>
+    <audio id="movePiece0" src="sounds/movePiece0.ogg" preload="auto" controls="none" style="display: none;" volume="0.375"></audio>
+    <audio id="movePiece1" src="sounds/movePiece1.ogg" preload="auto" controls="none" style="display: none;" volume="0.375"></audio>
+    <audio id="movePiece2" src="sounds/movePiece2.ogg" preload="auto" controls="none" style="display: none;" volume="0.375"></audio>
     <audio id="spare" preload="auto" controls="none" style="display: none;" volume="0.375"></audio>
     <audio id="spare2" preload="auto" controls="none" style="display: none;" volume="0.375"></audio>
   <script>
     var gEBI = document.getElementById.bind(document);
     var sounds = {
-        beep: [gEBI("beep")],
-        engine: [gEBI("engine")],
-        light_thunk: [gEBI("light_thunk")],
-        tinkle_to_static: [gEBI("tinkle_to_static")],
-        womp_to_static: [gEBI("womp_to_static")],
-        wrong: [gEBI("wrong")],
-        warning_beeps: [gEBI("warning_beeps")],
+        wud: [gEBI("wud0"), gEBI("wud1"), gEBI("wud2"), gEBI("wud3")],
+        movePiece: [gEBI("movePiece0"), gEBI("movePiece1"), gEBI("movePiece2")],
         spares: [gEBI("spare"), gEBI("spare2")],
     }
     Object.values(sounds).forEach((arr) => arr.forEach(audio => audio.volume = 0.375))

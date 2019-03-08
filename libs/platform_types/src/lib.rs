@@ -50,27 +50,17 @@ impl Input {
 }
 
 //TODO more meaningful names for these?
-//TODO clear out unused sound effects
-
 #[derive(Clone, Copy, Debug)]
 pub enum SFX {
-    CardPlace,
-    CardSlide,
-    ChipsCollide,
-    DieShuffle,
-    DieThrow,
-    ButtonPress,
+    Wud,
+    MovePiece,
 }
 
 impl SFX {
     pub fn to_sound_key(&self) -> &'static str {
         match *self {
-            SFX::CardPlace => "cardPlace",
-            SFX::CardSlide => "cardSlide",
-            SFX::ChipsCollide => "chipsCollide",
-            SFX::DieShuffle => "dieShuffle",
-            SFX::DieThrow => "dieThrow",
-            SFX::ButtonPress => "buttonPress",
+            SFX::Wud => "wud",
+            SFX::MovePiece => "movePiece",
         }
     }
 }

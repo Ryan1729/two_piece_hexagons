@@ -1,16 +1,17 @@
 # TODO
 
-* add clacking sound when things fall
-
 * should we allow switching hex with empty space to try and make chain reactions?
   * Yeah, probably.
 
 * generate solvable puzzles where the goal is to eliminate all the hexes
-  * add wall (A hex that doesn't fall)
+  * shrink the playfield and detect when the grid is empty
   * add way to initialize game from a grid
   * start generating small grids of different shapes
+  * start generating small grids of different colour patterns
+  * ensure that an even number of each colour is in the grid
   * ensure shapes are connected to the center, but allow non-rectangles
     * what are the further requirements for solvability?
+  * add wall (A hex that doesn't fall) if we think we need more ways to make levels
 
 * try more mechanics
   * meta

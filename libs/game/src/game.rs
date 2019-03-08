@@ -120,7 +120,7 @@ struct Animation {
     spec: HalfHexSpec,
 }
 
-fn advance_animations(state: &mut GameState) {
+fn advance_animations(state: &mut GameState, speaker: &mut Speaker) {
     for animation_index in (0..state.animations.len()).rev() {
         let animation = &mut state.animations[animation_index];
         animation.approach_target();
@@ -146,7 +146,8 @@ fn advance_animations(state: &mut GameState) {
             }
 
             state.animations.swap_remove(animation_index);
-            apply_gravity_once(&mut state.grid);
+            apply_gravity_once(&mut state.grid, speaker);
+            speaker.request_sfx(SFX::MovePiece);
         }
     }
 }
@@ -465,7 +466,7 @@ fn draw_hexagon(framebuffer: &mut Framebuffer, x: u8, y: u8, spec: HalfHexSpec) 
     }
 }
 
-fn apply_gravity_once(grid: &mut Grid) {
+fn apply_gravity_once(grid: &mut Grid, speaker: &mut Speaker) {
     for index in 0..grid.len() {
         if let GridCell::Present(half_hex) = grid[index] {
             let (x, y) = i_to_xy(index);
@@ -510,6 +511,7 @@ fn apply_gravity_once(grid: &mut Grid) {
                         {
                             grid[forward_xy_index] = GridCell::Present(half_hex);
                             grid[index] = GridCell::Absent;
+                            speaker.request_sfx(SFX::Wud);
                             continue;
                         }
                     }
@@ -549,13 +551,13 @@ pub fn update_and_render(
     framebuffer: &mut Framebuffer,
     state: &mut GameState,
     input: Input,
-    _speaker: &mut Speaker,
+    speaker: &mut Speaker,
 ) {
     //
     //UPDATE
     //
-    advance_animations(state);
-    apply_gravity_once(&mut state.grid);
+    advance_animations(state, speaker);
+    apply_gravity_once(&mut state.grid, speaker);
 
     match input.gamepad {
         Button::B => framebuffer.clear_to(BLUE),
@@ -580,6 +582,7 @@ pub fn update_and_render(
                 if let (GridCell::Present(h1), GridCell::Present(h2)) =
                     (state.grid[c1], state.grid[c2])
                 {
+                    speaker.request_sfx(SFX::MovePiece);
                     state.grid[c1] = GridCell::Animating;
                     state.grid[c2] = GridCell::Animating;
                     state.animations.push(Animation::new(c1, c2, h1));
