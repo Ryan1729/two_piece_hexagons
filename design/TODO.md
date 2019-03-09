@@ -1,7 +1,5 @@
 # TODO
 
-* should we allow switching hex with empty space to try and make chain reactions?
-  * Yeah, probably.
 
 * generate solvable puzzles where the goal is to eliminate all the hexes
   * shrink the playfield and detect when the grid is empty

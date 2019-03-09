@@ -117,39 +117,7 @@ struct Animation {
     target_y: u8,
     x_rate: u8,
     y_rate: u8,
-    spec: HalfHexSpec,
-}
-
-fn advance_animations(state: &mut GameState, speaker: &mut Speaker) {
-    for animation_index in (0..state.animations.len()).rev() {
-        let animation = &mut state.animations[animation_index];
-        animation.approach_target();
-
-        if animation.is_complete() {
-            let index = xy_to_i(animation.x, animation.y);
-
-            if state.grid[index].is_present() {
-                //hope it is moved soon?
-                continue;
-            }
-
-            state.grid[index] = GridCell::Present(animation.spec);
-
-            let other_index = if on_left!(animation.x) {
-                index + 1
-            } else {
-                index - 1
-            };
-            if state.grid[other_index].map(get_colours) == state.grid[index].map(get_colours) {
-                state.grid[other_index] = GridCell::Absent;
-                state.grid[index] = GridCell::Absent;
-            }
-
-            state.animations.swap_remove(animation_index);
-            apply_gravity_once(&mut state.grid, speaker);
-            speaker.request_sfx(SFX::MovePiece);
-        }
-    }
+    spec: Option<HalfHexSpec>,
 }
 
 use std::cmp::{max, min};
@@ -157,7 +125,8 @@ use std::cmp::{max, min};
 const DELAY_FACTOR: u8 = 16;
 
 impl Animation {
-    pub fn new(i: usize, target_i: usize, spec: HalfHexSpec) -> Self {
+    pub fn new<H: Into<Option<HalfHexSpec>>>(i: usize, target_i: usize, spec: H) -> Self {
+        let spec = spec.into();
         let (x, y) = i_to_xy(i);
         let (target_x, target_y) = i_to_xy(target_i);
 
@@ -229,6 +198,42 @@ impl Animation {
                 min(y_diff, self.y_rate) as i8
             },
         )
+    }
+}
+
+fn advance_animations(state: &mut GameState, speaker: &mut Speaker) {
+    for animation_index in (0..state.animations.len()).rev() {
+        let animation = &mut state.animations[animation_index];
+        animation.approach_target();
+
+        if animation.is_complete() {
+            let index = xy_to_i(animation.x, animation.y);
+
+            if state.grid[index].is_present() {
+                //hope it is moved soon?
+                continue;
+            }
+
+            state.grid[index] = if let Some(spec) = animation.spec {
+                GridCell::Present(spec)
+            } else {
+                GridCell::Absent
+            };
+
+            let other_index = if on_left!(animation.x) {
+                index + 1
+            } else {
+                index - 1
+            };
+            if state.grid[other_index].map(get_colours) == state.grid[index].map(get_colours) {
+                state.grid[other_index] = GridCell::Absent;
+                state.grid[index] = GridCell::Absent;
+            }
+
+            state.animations.swap_remove(animation_index);
+            apply_gravity_once(&mut state.grid, speaker);
+            speaker.request_sfx(SFX::MovePiece);
+        }
     }
 }
 
@@ -574,20 +579,36 @@ pub fn update_and_render(
     if input.pressed_this_frame(Button::A) {
         match state.cursor {
             Cursor::Unselected(c) => {
-                if state.grid[c].is_present() {
+                if !state.grid[c].is_animating() {
                     state.cursor = Cursor::Selected(c, c);
                 }
             }
             Cursor::Selected(c1, c2) => {
-                if let (GridCell::Present(h1), GridCell::Present(h2)) =
-                    (state.grid[c1], state.grid[c2])
-                {
-                    speaker.request_sfx(SFX::MovePiece);
-                    state.grid[c1] = GridCell::Animating;
-                    state.grid[c2] = GridCell::Animating;
-                    state.animations.push(Animation::new(c1, c2, h1));
-                    state.animations.push(Animation::new(c2, c1, h2));
-                    state.cursor = Cursor::Unselected(c2);
+                macro_rules! animate {
+                    ($h1: expr, $h2: expr) => {
+                        speaker.request_sfx(SFX::MovePiece);
+                        state.grid[c1] = GridCell::Animating;
+                        state.grid[c2] = GridCell::Animating;
+                        state.animations.push(Animation::new(c1, c2, $h1));
+                        state.animations.push(Animation::new(c2, c1, $h2));
+                        state.cursor = Cursor::Unselected(c2);
+                    };
+                }
+
+                match (state.grid[c1], state.grid[c2]) {
+                    (GridCell::Present(h1), GridCell::Present(h2)) => {
+                        animate!(h1, h2);
+                    }
+                    (GridCell::Present(h1), GridCell::Absent) => {
+                        animate!(h1, None);
+                    }
+                    (GridCell::Absent, GridCell::Present(h2)) => {
+                        animate!(None, h2);
+                    }
+                    (GridCell::Absent, GridCell::Absent) => {
+                        animate!(None, None);
+                    }
+                    _ => {}
                 }
             }
         };
@@ -649,8 +670,16 @@ pub fn update_and_render(
         );
     }
 
-    for &Animation { x, y, spec, .. } in state.animations.iter() {
-        draw_hexagon(framebuffer, x, y, spec);
+    for anim in state.animations.iter() {
+        if let &Animation {
+            x,
+            y,
+            spec: Some(spec),
+            ..
+        } = anim
+        {
+            draw_hexagon(framebuffer, x, y, spec);
+        }
     }
 
     state.frame_counter += 1;
