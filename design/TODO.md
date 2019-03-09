@@ -1,5 +1,6 @@
 # TODO
 
+* fix hexes not being detected as matching sometimes.
 
 * generate solvable puzzles where the goal is to eliminate all the hexes
   * shrink the playfield and detect when the grid is empty

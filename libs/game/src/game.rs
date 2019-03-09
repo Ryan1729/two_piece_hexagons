@@ -249,9 +249,14 @@ type Grid = [GridCell<HalfHexSpec>; GRID_LENGTH];
 fn new_grid() -> Grid {
     let mut grid: Grid = [GridCell::Absent; GRID_LENGTH];
     let mut c: HalfHexSpec = 0;
-    const W: usize = GRID_WIDTH as usize * 0b1_1000;
+    let offset = 2;
     for i in 0..GRID_LENGTH {
-        if i < W || i > GRID_LENGTH - W || i % W <= 1 || i % W >= W - 2 {
+        let (x, y) = i_to_xy(i);
+        if x < GRID_WIDTH / 2 - offset
+            || x > GRID_WIDTH / 2 + offset - 1
+            || y < GRID_HEIGHT / 2 - offset
+            || y > GRID_HEIGHT / 2 + offset - 1
+        {
             continue;
         }
 
@@ -564,6 +569,8 @@ pub fn update_and_render(
     advance_animations(state, speaker);
     apply_gravity_once(&mut state.grid, speaker);
 
+    let is_empty = state.grid.iter().all(|c| c.is_absent());
+
     match input.gamepad {
         Button::B => framebuffer.clear_to(BLUE),
         Button::Select => {
@@ -572,10 +579,12 @@ pub fn update_and_render(
             }
             framebuffer.clear_to(WHITE)
         }
-        Button::Start => framebuffer.clear_to(RED),
         _ => {}
     }
 
+    if input.pressed_this_frame(Button::Start) && is_empty {
+        state.grid = new_grid();
+    }
     if input.pressed_this_frame(Button::A) {
         match state.cursor {
             Cursor::Unselected(c) => {
@@ -650,35 +659,39 @@ pub fn update_and_render(
 
     framebuffer.clear_to(GREY);
 
-    for y in 0..GRID_HEIGHT {
-        for x in 0..GRID_WIDTH {
-            if let GridCell::Present(spec) = state.grid[xy_to_i(x, y)] {
-                draw_hexagon(framebuffer, x, y, spec);
+    if is_empty {
+        framebuffer.print_line(b"you did it! press enter to do it again!", 40, 40, 7);
+    } else {
+        for y in 0..GRID_HEIGHT {
+            for x in 0..GRID_WIDTH {
+                if let GridCell::Present(spec) = state.grid[xy_to_i(x, y)] {
+                    draw_hexagon(framebuffer, x, y, spec);
+                }
             }
         }
-    }
 
-    for index in state.cursor.iter() {
-        let (x, y) = i_to_xy(index);
-        let (p_x, p_y) = p_xy(x, y);
-        framebuffer.draw_rect_with_shader(
-            p_x as usize - 1,
-            p_y as usize - 1,
-            6,
-            10,
-            marching_ants(state.frame_counter),
-        );
-    }
+        for index in state.cursor.iter() {
+            let (x, y) = i_to_xy(index);
+            let (p_x, p_y) = p_xy(x, y);
+            framebuffer.draw_rect_with_shader(
+                p_x as usize - 1,
+                p_y as usize - 1,
+                6,
+                10,
+                marching_ants(state.frame_counter),
+            );
+        }
 
-    for anim in state.animations.iter() {
-        if let &Animation {
-            x,
-            y,
-            spec: Some(spec),
-            ..
-        } = anim
-        {
-            draw_hexagon(framebuffer, x, y, spec);
+        for anim in state.animations.iter() {
+            if let &Animation {
+                x,
+                y,
+                spec: Some(spec),
+                ..
+            } = anim
+            {
+                draw_hexagon(framebuffer, x, y, spec);
+            }
         }
     }
 
