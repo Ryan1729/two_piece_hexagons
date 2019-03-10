@@ -1,6 +1,8 @@
 use features::{invariants_checked, log, GLOBAL_ERROR_LOGGER, GLOBAL_LOGGER};
 use platform_types::{Button, Input, Speaker, State, StateParams, SFX};
-use rendering::{Framebuffer, BLUE, GREY, PALETTE, PURPLE, RED, WHITE, YELLOW};
+use rand::prng::XorShiftRng;
+use rand::{Rng, SeedableRng};
+use rendering::{Framebuffer, BLUE, GREY, PALETTE, PURPLE, WHITE, YELLOW};
 
 const GRID_WIDTH: u8 = 40;
 const GRID_HEIGHT: u8 = 60;
@@ -242,39 +244,58 @@ pub struct GameState {
     cursor: Cursor,
     frame_counter: usize,
     animations: Vec<Animation>,
+    rng: XorShiftRng,
 }
 
 type Grid = [GridCell<HalfHexSpec>; GRID_LENGTH];
 
-fn new_grid() -> Grid {
+fn new_grid<R: Rng>(rng: &mut R) -> Grid {
+    use std::collections::HashMap;
+    let mut counts: HashMap<HalfHexSpec, bool> = HashMap::with_capacity(256);
+
     let mut grid: Grid = [GridCell::Absent; GRID_LENGTH];
-    let mut c: HalfHexSpec = 0;
-    let offset = 2;
+    let mut c: HalfHexSpec = rng.gen();
     for i in 0..GRID_LENGTH {
         let (x, y) = i_to_xy(i);
-        if x < GRID_WIDTH / 2 - offset
-            || x > GRID_WIDTH / 2 + offset - 1
-            || y < GRID_HEIGHT / 2 - offset
-            || y > GRID_HEIGHT / 2 + offset - 1
-        {
+        if x <= 1 || x >= GRID_WIDTH - 2 || y <= 1 || y >= GRID_HEIGHT - 2 {
             continue;
         }
 
         grid[i] = GridCell::Present(c);
+        let e = counts.entry(c).or_default();
+        *e = !*e;
         c = c.wrapping_add(1);
+    }
+
+    // This isn't O(256 * GRID_LENGTH) in practice given the colurs are distributed such that
+    // we hit a cell of any given colour quickly, as is currently the case.
+    for (c, odd) in counts {
+        if odd {
+            let mut index = rng.gen_range(0, GRID_LENGTH);
+            for _ in 0..GRID_LENGTH {
+                if grid[index] == GridCell::Present(c) {
+                    grid[index] = GridCell::Absent;
+                    break;
+                }
+
+                index = (index + 1) % GRID_LENGTH;
+            }
+        }
     }
     grid
 }
 
 impl GameState {
-    pub fn new(_seed: [u8; 16]) -> GameState {
-        let grid: Grid = new_grid();
+    pub fn new(seed: [u8; 16]) -> GameState {
+        let mut rng = XorShiftRng::from_seed(seed);
+        let grid: Grid = new_grid(&mut rng);
 
         GameState {
             grid,
             cursor: Cursor::Unselected(GRID_WIDTH as usize + 1),
             frame_counter: 0,
             animations: Vec::with_capacity(GRID_WIDTH as usize),
+            rng,
         }
     }
 }
@@ -583,7 +604,7 @@ pub fn update_and_render(
     }
 
     if input.pressed_this_frame(Button::Start) && is_empty {
-        state.grid = new_grid();
+        state.grid = new_grid(&mut state.rng);
     }
     if input.pressed_this_frame(Button::A) {
         match state.cursor {
