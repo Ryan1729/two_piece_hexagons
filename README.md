@@ -1,5 +1,8 @@
 ## Two-Piece Hexagons
 
+[Live Version](https://ryan1729.github.io/two_piece_hexagons/index.html) <!-- the index.html is because the https://ryan1729.github.io/two_piece_hexagons/ was getting a 404 page. Apparently this sometimes just goes away eventually? -->
+
+
 see [design notes](./design).
 
 ### Building (using Rust's native WebAssembly backend)
