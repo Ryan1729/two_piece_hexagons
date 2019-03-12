@@ -1,5 +1,7 @@
 ## Two-Piece Hexagons
 
+Use z, x, and the arrow keys to match hexagons halves.
+
 [Live Version](https://ryan1729.github.io/two_piece_hexagons/index.html) <!-- the index.html is because the https://ryan1729.github.io/two_piece_hexagons/ was getting a 404 page. Apparently this sometimes just goes away eventually? -->
 
 
